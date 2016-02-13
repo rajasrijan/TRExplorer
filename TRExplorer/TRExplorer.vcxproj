@@ -85,7 +85,6 @@
     <ClCompile Include="DDS.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="Source.cpp" />
     <ClCompile Include="tiger.cpp" />
   </ItemGroup>
   <ItemGroup>
