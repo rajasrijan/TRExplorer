@@ -14,6 +14,23 @@
 using namespace std;
 
 //	DRM start.
+
+struct unknown_header1
+{
+	uint32_t DataSize;
+	uint32_t type;
+	uint32_t flags;
+	uint32_t ID;
+	uint32_t u3;
+};
+
+struct unknown_header2
+{
+	uint32_t u1;
+	uint32_t offset;
+	uint32_t size;
+	uint32_t u4;
+};
 class DRM_Header
 {
 public:
@@ -41,22 +58,13 @@ public:
 		cout << "\nUnknownCount\t:" << UnknownCount;
 		cout << endl;
 	}
-};
 
-struct unknown_header1
-{
-	uint32_t DataSize;
-	uint32_t type;
-	uint32_t flags;
-	uint32_t ID;
-	uint32_t u3;
-};
-struct unknown_header2
-{
-	uint32_t u1;
-	uint32_t offset;
-	uint32_t size;
-	uint32_t u4;
+	vector<unknown_header2> it(iostream *dataStream, int dummy = 0)
+	{
+		vector<unknown_header2> vec(SectionCount);
+		dataStream->read((char*)vec.data(), SectionCount*sizeof(unknown_header2));
+		return vec;
+	}
 };
 
 //DRM end
@@ -333,12 +341,18 @@ public:
 		return t;
 	}
 
-	vector<sT> it()
+	static size_t nativeSize()
 	{
-		filestream->seekg(offset + sizeof(T));
+		return sizeof(T);
+	}
+
+	vector<sT> it(int padd = 0)
+	{
+		int child_offset = offset + sizeof(T) + padd;
+		filestream->seekg(child_offset);
 		auto tmp = t.it(filestream);
 		vector<sT> vec;
-		int child_offset = offset + sizeof(T);
+
 		for (auto it = tmp.begin(); it < tmp.end(); it++)
 		{
 			vec.push_back(sT(child_offset, filestream, *it));
@@ -350,6 +364,10 @@ public:
 
 typedef FormatHelperNoChild<CDRM_BlockHeader>	CDRMBlockHeader;
 typedef FormatHelper<CDRM_Header, CDRMBlockHeader> CDRMHeader;
-typedef FormatHelper<DRM_Header, CDRMBlockHeader> DRMHeader;
+typedef FormatHelperNoChild<unknown_header1> unknownHeader1;
+typedef FormatHelper<unknown_header2, CDRMHeader> unknownHeader2;
+typedef FormatHelper<DRM_Header, unknownHeader2> DRMHeader;
+typedef FormatHelper<element, DRMHeader> elementHeader;
+typedef FormatHelper<file_header, elementHeader> fileHeader;
 
 #endif // !TIGER_H

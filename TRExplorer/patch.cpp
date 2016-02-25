@@ -6,8 +6,8 @@
 patch::patch(string _path) :filePath(_path)
 {
 	int main_offset, drm_offset;
-	CDRM_Header newHeader;
-	shared_ptr<char> cdrmData;
+	//CDRM_Header newHeader;
+	//shared_ptr<char> cdrmData;
 	//unknown_header2 u;
 	int cdrmSize = 0;
 	pfile.open(_path, ios_base::in | ios_base::out | ios_base::binary);
@@ -20,45 +20,48 @@ patch::patch(string _path) :filePath(_path)
 	//TigerHelper tiger(0, &pfile);
 
 	main_offset = 0;
-	pfile.read((char*)&header, sizeof(header));
-	header.printHeader();
+	fileHeader header(0,&pfile);
+	//pfile.read((char*)&header, sizeof(header));
+	//header.printHeader();
 
 	//load table
-	elements = vector<element>(header.count);
-	int tabel_size = header.count*sizeof(element);
-	pfile.read((char*)elements.data(), tabel_size);
+	vector<elementHeader> elements = header.it();
+	/*int tabel_size = header.get().count*sizeof(element);
+	pfile.read((char*)elements.data(), tabel_size);*/
 
 	system("mkdir patch_drms");
 	for (size_t i = 212; i < 213/*elements.size()*/; i++)
 	{
-		uint32_t offset = elements[i].offset & 0xFFFFF800;
-		uint32_t base = elements[i].offset & 0x000007FF;
-		int size = elements[i].size;
+		uint32_t offset = elements[i].get().offset & 0xFFFFF800;
+		uint32_t base = elements[i].get().offset & 0x000007FF;
+		int size = elements[i].get().size;
 
 		//pfile.seekg(offset);
 		//drm_offset = offset;
 		//DRM_Header drmHeader;
 		DRMHeader drmHeader(offset, &pfile);
 		drmHeader.get().printHeader();
-
-		vector<unknown_header1> uh1(drmHeader.get().SectionCount);
-		pfile.read((char*)uh1.data(), sizeof(unknown_header1)*uh1.size());
-		/*skip string in between*/
-		pfile.seekg(drmHeader.get().strlen1 + drmHeader.get().strlen2, ios_base::cur);
-		drm_offset = pfile.tellg();
-		vector<unknown_header2> uh2(drmHeader.get().SectionCount);
-		pfile.read((char*)uh2.data(), sizeof(unknown_header2)*uh2.size());
+		DRM_Header &drmHdr = drmHeader.get();
+		//drmHeader.it((drmHdr.SectionCount*sizeof(unknown_header1)) + drmHdr.strlen1 + drmHdr.strlen2);
+		//vector<unknown_header1> uh1(drmHeader.get().SectionCount);
+		//pfile.read((char*)uh1.data(), sizeof(unknown_header1)*uh1.size());
+		///*skip string in between*/
+		//pfile.seekg(drmHeader.get().strlen1 + drmHeader.get().strlen2, ios_base::cur);
+		//drm_offset = pfile.tellg();
+		/*vector<unknown_header2> uh2(drmHeader.get().SectionCount);
+		pfile.read((char*)uh2.data(), sizeof(unknown_header2)*uh2.size());*/
+		vector<unknownHeader2> uh2 = drmHeader.it((drmHdr.SectionCount*sizeof(unknown_header1)) + drmHdr.strlen1 + drmHdr.strlen2);
 		system(("mkdir patch_drms\\" + to_string(i)).c_str());
 
 		for (size_t j = 0; j < 1/*uh2.size()*/; j++)
 		{
 			string cdrmFilePath = ".\\patch_drms\\" + to_string(i) + "\\" + to_string(j) + ".cdrm";
-			uint32_t offset = uh2[j].offset & 0xFFFFF800;
-			uint32_t base = (uh2[j].offset & 0x000007F0) >> 4;
-			uint32_t fileNo = uh2[j].offset & 0x0000000F;
-			if (base != header.fileId)
+			uint32_t offset = uh2[j].get().offset & 0xFFFFF800;
+			uint32_t base = (uh2[j].get().offset & 0x000007F0) >> 4;
+			uint32_t fileNo = uh2[j].get().offset & 0x0000000F;
+			if (base != header.get().fileId)
 				continue;
-			int size = uh2[j].size;
+			int size = uh2[j].get().size;
 
 			pfile.seekg(offset);
 			/*Write CDRM*/
@@ -77,10 +80,10 @@ patch::patch(string _path) :filePath(_path)
 			pfile.seekg(offset);
 			CDRMHeader head(offset, &pfile);
 			head.get().printHeader();
-			head.it();
+			//head.it();
 			//vector<CDRM_BlockHeader> bh(head.get().count);
 			auto bh = head.it();
-			pfile.read((char*)bh.data(), sizeof(CDRM_BlockHeader)*bh.size());
+			//pfile.read((char*)bh.data(), sizeof(CDRM_BlockHeader)*bh.size());
 			if (bh.size() % 2)
 				pfile.seekg(8, ios_base::cur);
 			//system(("mkdir patch_drms\\" + to_string(i) + "\\" + to_string(j)).c_str());
@@ -99,7 +102,7 @@ patch::patch(string _path) :filePath(_path)
 
 			shared_ptr<char> data(new char[size]);
 			shared_ptr<char> udata(new char[usize]);
-			cdrmData = udata;
+			//cdrmData = udata;
 			cdrmSize = usize;
 			pfile.read(data.get(), size);
 			uLongf destLen = usize;
