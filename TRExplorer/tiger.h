@@ -106,6 +106,26 @@ public:
 };
 // TIGER END
 
+class CDRM_BlockHeader //(repeaded "count" times , 16 byte aligned at the end)
+{
+public:
+	uint32_t blockType : 8; // 1 is uncompressed , 2 is zlib , 3 is the new one
+	uint32_t uncompressedSize : 24; //size of uncompressed data chunk , max 0x40000
+	uint32_t compressedSize; //size of the compressed data block
+	CDRM_BlockHeader()
+	{}
+	~CDRM_BlockHeader()
+	{}
+	void load(iostream *dataStream)
+	{
+		dataStream->read((char*)this, sizeof(CDRM_BlockHeader));
+	}
+
+	void save(iostream *dataStream)
+	{
+		dataStream->write((char*)this, sizeof(CDRM_BlockHeader));
+	}
+};
 
 class CDRM_Header //CDRM Header file.
 {
@@ -131,26 +151,11 @@ public:
 		cout << "\noffset\t:" << offset;
 		cout << endl;
 	}
-};
-
-class CDRM_BlockHeader //(repeaded "count" times , 16 byte aligned at the end)
-{
-public:
-	uint32_t blockType : 8; // 1 is uncompressed , 2 is zlib , 3 is the new one
-	uint32_t uncompressedSize : 24; //size of uncompressed data chunk , max 0x40000
-	uint32_t compressedSize; //size of the compressed data block
-	CDRM_BlockHeader()
-	{}
-	~CDRM_BlockHeader()
-	{}
-	void load(iostream *dataStream)
+	vector<CDRM_BlockHeader> it(iostream *dataStream)
 	{
-		dataStream->read((char*)this, sizeof(CDRM_BlockHeader));
-	}
-
-	void save(iostream *dataStream)
-	{
-		dataStream->write((char*)this, sizeof(CDRM_BlockHeader));
+		vector<CDRM_BlockHeader> vec(count);
+		dataStream->read((char*)vec.data(), count*sizeof(CDRM_BlockHeader));
+		return vec;
 	}
 };
 
@@ -262,6 +267,11 @@ public:
 		t.load(filestream);
 	}
 
+	FormatHelperNoChild(int off, fstream *file, T &_t) :offset(off), filestream(file), t(_t)
+	{
+
+	}
+
 	~FormatHelperNoChild()
 	{
 
@@ -286,6 +296,11 @@ public:
 		filestream->seekp(offset);
 		filestream->write((char*)&t, sizeof(T));
 	}
+
+	static size_t nativeSize()
+	{
+		return sizeof(T);
+	}
 };
 
 template<class T, class sT>
@@ -295,12 +310,17 @@ private:
 	T t;
 	int offset;
 	fstream *filestream;
-	sT vec;
+	//sT vec;
 public:
 	FormatHelper(int off, fstream *file) :offset(off), filestream(file)
 	{
-		data->seekg(offset);
+		filestream->seekg(offset);
 		t.load(filestream);
+	}
+
+	FormatHelper(int off, fstream *file, T &_t) :offset(off), filestream(file), t(_t)
+	{
+
 	}
 
 	~FormatHelper()
@@ -313,17 +333,23 @@ public:
 		return t;
 	}
 
-	void it()
+	vector<sT> it()
 	{
-		auto tmp = t.it();
+		filestream->seekg(offset + sizeof(T));
+		auto tmp = t.it(filestream);
+		vector<sT> vec;
+		int child_offset = offset + sizeof(T);
 		for (auto it = tmp.begin(); it < tmp.end(); it++)
 		{
-
+			vec.push_back(sT(child_offset, filestream, *it));
+			child_offset += sT::nativeSize();
 		}
+		return vec;
 	}
 };
 
 typedef FormatHelperNoChild<CDRM_BlockHeader>	CDRMBlockHeader;
+typedef FormatHelper<CDRM_Header, CDRMBlockHeader> CDRMHeader;
 typedef FormatHelper<DRM_Header, CDRMBlockHeader> DRMHeader;
 
 #endif // !TIGER_H
