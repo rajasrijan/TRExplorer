@@ -9,16 +9,38 @@
 #include <memory>
 #include <map>
 
+#define ALIGN_TO(address,alignment) ((address+alignment-1)/alignment)*alignment
+
 using namespace std;
 
 //	DRM start.
-struct DRM_Header
+class DRM_Header
 {
+public:
 	uint32_t version; // 0x16 for TR9
 	uint32_t strlen1, strlen2;
 	uint32_t unknown[3]; // all zero? must check all DRM files
 	uint32_t SectionCount;
 	uint32_t UnknownCount;
+	DRM_Header()
+	{}
+	~DRM_Header()
+	{}
+	void load(iostream *dataStream)
+	{
+		dataStream->read((char*)this, sizeof(DRM_Header));
+	}
+	void printHeader()
+	{
+		cout << "DRM Header\n";
+		cout << "version\t\t:" << hex << version << dec;
+		cout << "\nstrlen1\t\t:" << strlen1;
+		cout << "\nstrlen2\t\t:" << strlen2;
+		cout << "\nunknown\t\t:" << unknown[0] << "," << unknown[1] << "," << unknown[2];
+		cout << "\nSectionCount\t:" << SectionCount;
+		cout << "\nUnknownCount\t:" << UnknownCount;
+		cout << endl;
+	}
 };
 
 struct unknown_header1
@@ -40,15 +62,6 @@ struct unknown_header2
 //DRM end
 
 // TIGER START
-struct file_header
-{
-	uint32_t magic;
-	uint32_t version;
-	uint32_t NumberOfFiles;
-	uint32_t count, d4;
-	char BasePath[32];
-};
-
 struct element
 {
 	uint32_t nameHash;
@@ -57,6 +70,40 @@ struct element
 	uint32_t offset;
 };
 
+class file_header
+{
+public:
+	uint32_t magic;
+	uint32_t version;
+	uint32_t NumberOfFiles;
+	uint32_t count;
+	uint32_t fileId;
+	char BasePath[32];
+	void printHeader()
+	{
+		cout << "Tiger Header\n";
+		cout << "Magic\t\t:" << hex << magic << dec;
+		cout << "\nVersion\t\t:" << version;
+		cout << "\nParts\t\t:" << NumberOfFiles;
+		cout << "\nDRMs\t\t:" << count;
+		cout << "\nBase Path\t:" << BasePath;
+		cout << endl;
+	}
+	void load(iostream *dataStream)
+	{
+		dataStream->read((char*)this, sizeof(file_header));
+	}
+	void save(iostream *dataStream)
+	{
+		dataStream->write((char*)this, sizeof(file_header));
+	}
+	vector<element> it(fstream* filestream)
+	{
+		vector<struct element> v(count);
+		filestream->read((char*)v.data(), v.size()*sizeof(element));
+		return v;
+	}
+};
 // TIGER END
 
 
@@ -66,7 +113,7 @@ public:
 	uint32_t magic; // Always "CDRM" , so 0x4344524d in BE , 0x4d524443 in LE
 	uint32_t version; // Always 0 for TR9? Was 0x2 for some files in DX3 I think.
 	uint32_t count; // number of blocks
-	uint32_t u1; // pretty much everything is 16 byte aligned
+	uint32_t offset; // pretty much everything is 16 byte aligned
 	CDRM_Header()
 	{}
 	~CDRM_Header()
@@ -75,7 +122,15 @@ public:
 	{
 		dataStream->read((char*)this, sizeof(CDRM_Header));
 	}
-
+	void printHeader()
+	{
+		cout << "CDRM Header\n";
+		cout << "Magic\t\t:" << hex << magic << dec;
+		cout << "\nVersion\t\t:" << version;
+		cout << "\nDRMs\t\t:" << count;
+		cout << "\noffset\t:" << offset;
+		cout << endl;
+	}
 };
 
 class CDRM_BlockHeader //(repeaded "count" times , 16 byte aligned at the end)
@@ -91,6 +146,11 @@ public:
 	void load(iostream *dataStream)
 	{
 		dataStream->read((char*)this, sizeof(CDRM_BlockHeader));
+	}
+
+	void save(iostream *dataStream)
+	{
+		dataStream->write((char*)this, sizeof(CDRM_BlockHeader));
 	}
 };
 
@@ -183,5 +243,87 @@ public:
 	}
 };
 
+template<class T>
+class FormatHelperNoChild
+{
+private:
+	T t;
+	int offset;
+	fstream *filestream;
+public:
+	FormatHelperNoChild()
+	{
+		offset = 0;
+		filestream = 0;
+	}
+	FormatHelperNoChild(int off, fstream *file) :offset(off), filestream(file)
+	{
+		data->seekg(offset);
+		t.load(filestream);
+	}
+
+	~FormatHelperNoChild()
+	{
+
+	}
+
+	T& get()
+	{
+		return t;
+	}
+
+	void setOffset(int off)
+	{
+		offset = off;
+	}
+	void setFile(fstream* stream)
+	{
+		filestream = stream;
+	}
+
+	void serialize()
+	{
+		filestream->seekp(offset);
+		filestream->write((char*)&t, sizeof(T));
+	}
+};
+
+template<class T, class sT>
+class FormatHelper
+{
+private:
+	T t;
+	int offset;
+	fstream *filestream;
+	sT vec;
+public:
+	FormatHelper(int off, fstream *file) :offset(off), filestream(file)
+	{
+		data->seekg(offset);
+		t.load(filestream);
+	}
+
+	~FormatHelper()
+	{
+
+	}
+
+	T& get()
+	{
+		return t;
+	}
+
+	void it()
+	{
+		auto tmp = t.it();
+		for (auto it = tmp.begin(); it < tmp.end(); it++)
+		{
+
+		}
+	}
+};
+
+typedef FormatHelperNoChild<CDRM_BlockHeader>	CDRMBlockHeader;
+typedef FormatHelper<DRM_Header, CDRMBlockHeader> DRMHeader;
 
 #endif // !TIGER_H

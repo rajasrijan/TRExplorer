@@ -84,12 +84,14 @@
   <ItemGroup>
     <ClCompile Include="DDS.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="patch.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="tiger.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="alldef.h" />
     <ClInclude Include="DDS.h" />
+    <ClInclude Include="patch.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="tiger.h" />
   </ItemGroup>
