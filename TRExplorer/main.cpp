@@ -14,6 +14,8 @@ int main(int argc, char *argv[])
 {
 	system("title rajasrijan's tiger decoder.");
 	patch p(argv[1]);
+	//p.unpack(212);
+	p.pack(212);
 	/*if (argc == 2)
 	{
 		TIGER file(argv[1]);

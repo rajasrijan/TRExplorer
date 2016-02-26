@@ -320,6 +320,10 @@ private:
 	fstream *filestream;
 	//sT vec;
 public:
+	FormatHelper() :offset(0), filestream(0)
+	{
+		memset((void*)&t, 0, sizeof(T));
+	}
 	FormatHelper(int off, fstream *file) :offset(off), filestream(file)
 	{
 		filestream->seekg(offset);
