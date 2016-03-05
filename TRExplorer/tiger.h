@@ -141,7 +141,7 @@ public:
 	uint32_t magic; // Always "CDRM" , so 0x4344524d in BE , 0x4d524443 in LE
 	uint32_t version; // Always 0 for TR9? Was 0x2 for some files in DX3 I think.
 	uint32_t count; // number of blocks
-	uint32_t offset; // pretty much everything is 16 byte aligned
+	uint32_t offset; // zero.pretty much everything is 16 byte aligned
 	CDRM_Header()
 	{}
 	~CDRM_Header()

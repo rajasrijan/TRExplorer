@@ -1,5 +1,7 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "patch.h"
 #include <algorithm>
+#include <regex>
 #include "alldef.h"
 
 
@@ -15,8 +17,11 @@ patch::patch(string _path) :filePath(_path)
 
 	main_offset = 0;
 	header = fileHeader(0, &pfile);
-	header.get().printHeader();
+	file_header &hdr = header.get();
+	hdr.printHeader();
 
+	tigerFiles[hdr.fileId] = vector<fstream*>(hdr.NumberOfFiles);
+	//header.get().count
 	//load table
 	//vector<elementHeader> elements = header.it();
 
@@ -159,6 +164,15 @@ void patch::pack(int id, string path)
 	{
 		cout << "(" << it->first << ", " << it->second << ")" << endl;
 	}
+
+	int fileno = 0, baseno = 0;
+	findEmptyCDRM(size, offset, fileno, baseno);
+
+	//	Pack cdrms
+	for (auto it = cdrmToPack.begin(); it != cdrmToPack.end(); it++)
+	{
+		*it.
+	}
 	/*for (size_t j = 0; j < uh2.size(); j++)
 	{
 		string cdrmFilePath = subDir + "\\" + to_string(j) + ".cdrm";
@@ -190,5 +204,40 @@ void patch::pack(int id, string path)
 
 int patch::findEmptyCDRM(size_t sizeHint, uint32_t &offset, int &file, int &base)
 {
-	fstream file;
+	string newFileName = regex_replace(filePath, regex("[.]([0-9]*)[.]tiger"), ".004.tiger$2");
+	fstream newFile(newFileName, ios_base::in | ios_base::out | ios_base::binary | ios_base::app);
+
+	if (!newFile.is_open())
+	{
+		cout << "File open fail [" << strerror(errno) << "]";
+		return 1;
+	}
+
+	//file = 4;
+	base = 0;
+
+	while (true)
+	{
+		offset = newFile.tellp();
+
+		if (newFile.peek() == EOF)
+		{
+			newFile.seekg(offset);
+			newFile.seekp(offset);
+			for (size_t i = 0; i < sizeHint; i += 0x800)
+			{
+				char data[0x800] = { 0 };
+				newFile.write(data, 0x800);
+				//cout << "File open fail [" << strerror(errno) << "]";
+				newFile.flush();
+			}
+			break;
+		}
+		//CDRM_Header cdrmHeader;
+		//cdrmHeader.load(&newFile);
+	}
+	newFile.close();
+	tigerFiles[base].push_back(new fstream(newFileName, ios_base::in | ios_base::out | ios_base::binary));
+	file = tigerFiles[base].size() - 1;
+	return 0;
 }
