@@ -24,12 +24,17 @@ struct unknown_header1
 	uint32_t u3;
 };
 
-struct unknown_header2
+class unknown_header2
 {
+public:
 	uint32_t u1;
 	uint32_t offset;
 	uint32_t size;
 	uint32_t u4;
+	void save(fstream* filestream)
+	{
+		filestream->write((char*)this, sizeof(unknown_header2));
+	}
 };
 class DRM_Header
 {
@@ -363,6 +368,12 @@ public:
 			child_offset += sT::nativeSize();
 		}
 		return vec;
+	}
+
+	void save()
+	{
+		filestream->seekp(offset);
+		t.save(filestream);
 	}
 };
 

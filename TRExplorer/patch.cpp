@@ -149,7 +149,6 @@ void patch::pack(int id, string path)
 	system(("mkdir " + subDir).c_str());
 
 
-
 	for (size_t j = 0; j < uh2.size(); j++)
 	{
 		string cdrmFilePath = subDir + "\\" + to_string(j) + ".cdrm";
@@ -171,7 +170,24 @@ void patch::pack(int id, string path)
 	//	Pack cdrms
 	for (auto it = cdrmToPack.begin(); it != cdrmToPack.end(); it++)
 	{
-		*it.
+		string fileName = it->second;
+		ifstream rawCdrmFile(fileName, ios_base::binary);
+		fstream *tigerFile = tigerFiles[baseno][fileno];
+		tigerFile->seekp(offset);
+
+		//	copy over files
+		size = 0;
+		while (rawCdrmFile.peek() != EOF)
+		{
+			char data[0x800] = { 0 };
+			rawCdrmFile.read(data, 0x800);
+			tigerFile->write(data, 0x800);
+			size += 0x800;
+		}
+
+		//	update offset in "unknown_header2"
+		uh2[it->first].get().offset = (offset & 0xFFFFF800) | (baseno << 4) | (fileno & 0x0000000F);
+		uh2[it->first].save();
 	}
 	/*for (size_t j = 0; j < uh2.size(); j++)
 	{
@@ -212,7 +228,8 @@ int patch::findEmptyCDRM(size_t sizeHint, uint32_t &offset, int &file, int &base
 		cout << "File open fail [" << strerror(errno) << "]";
 		return 1;
 	}
-
+	header.get().NumberOfFiles = 5;
+	header.save();
 	//file = 4;
 	base = 0;
 
@@ -233,8 +250,8 @@ int patch::findEmptyCDRM(size_t sizeHint, uint32_t &offset, int &file, int &base
 			}
 			break;
 		}
-		//CDRM_Header cdrmHeader;
-		//cdrmHeader.load(&newFile);
+		CDRM_Header cdrmHeader;
+		cdrmHeader.load(&newFile);
 	}
 	newFile.close();
 	tigerFiles[base].push_back(new fstream(newFileName, ios_base::in | ios_base::out | ios_base::binary));
