@@ -201,7 +201,7 @@ uint32_t TIGER::decodeCDRM(iostream *dataStream, uint32_t &size, string &path, s
 	auto_ptr<char> uncompressedData(new char[size]);
 	for (uint32_t i = 0; i < BlockHeader.size(); i++)
 	{
-		uint32_t pos = dataStream->tellg();
+		size_t pos = (size_t)dataStream->tellg();
 		pos = ((pos + 15) / 16) * 16;
 		dataStream->seekg(pos);	//Data is 16byte aligned.
 		dataStream->seekp(pos);	//Data is 16byte aligned.
@@ -283,7 +283,7 @@ uint32_t TIGER::decodeCDRM(iostream *dataStream, uint32_t &size, string &path, s
 		/*Find next free CDRM*/
 		tigerFiles[4]->seekg(0);
 		tigerFiles[4]->seekp(0);
-		uint32_t blockheaderpos = 0;
+		int blockheaderpos = 0;
 		CDRM_Header i;
 		while (true)
 		{
@@ -294,7 +294,7 @@ uint32_t TIGER::decodeCDRM(iostream *dataStream, uint32_t &size, string &path, s
 			size += i.count*sizeof(CDRM_BlockHeader);
 			size = ((size + 15) / 16) * 16;
 			CDRM_BlockHeader j;
-			for (int k = 0;k < i.count;k++)
+			for (size_t k = 0;k < i.count;k++)
 			{
 				j.load(tigerFiles[4]);
 				size += j.compressedSize;
@@ -309,7 +309,7 @@ uint32_t TIGER::decodeCDRM(iostream *dataStream, uint32_t &size, string &path, s
 		tigerFiles[4]->seekg(blockheaderpos);
 		tigerFiles[4]->seekp(blockheaderpos);
 		tigerFiles[4]->write((char*)&table, sizeof(CDRM_Header));
-		blockheaderpos = tigerFiles[4]->tellp();
+		blockheaderpos = (int)tigerFiles[4]->tellp();
 		tigerFiles[4]->write((char*)BlockHeader.data(), sizeof(CDRM_BlockHeader)*BlockHeader.size());
 		tigerFiles[4]->seekp(((((uint64_t)tigerFiles[4]->tellp()) + 15) / 16) * 16);	//Data is 16byte aligned.
 		for (uint32_t i = 0; i < BlockHeader.size(); i++)
@@ -335,7 +335,7 @@ uint32_t TIGER::decodeCDRM(iostream *dataStream, uint32_t &size, string &path, s
 			}
 		}
 
-		uint32_t cdrm_footer = tigerFiles[4]->tellp();
+		int cdrm_footer = (int)tigerFiles[4]->tellp();
 		cdrm_footer = ((cdrm_footer + 15) / 16) * 16;
 
 		footer.relative_offset = 0x800 - (cdrm_footer % 0x800);

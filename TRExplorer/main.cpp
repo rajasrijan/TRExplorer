@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <string.h>
+#include "DDS.h"
 #include "tiger.h"
 #include "patch.h"
 
@@ -14,6 +15,8 @@ int main(int argc, char *argv[])
 {
 	system("title rajasrijan's tiger decoder.");
 	patch p(argv[1]);
+	//p.unpackAll();
+	//p.unpack(0);
 	//p.unpack(212);
 	p.pack(212);
 	/*if (argc == 2)
