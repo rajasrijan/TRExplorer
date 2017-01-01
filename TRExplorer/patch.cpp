@@ -72,7 +72,7 @@ std::streampos getFileSize(fstream *file)
 
 patch::patch(string _tigerPath) :tigerFilePath(_tigerPath)
 {
-	int main_offset, drm_offset;
+	int main_offset;
 	fstream pfile;
 	pfile.open(tigerFilePath, ios_base::in | ios_base::out | ios_base::binary);
 	if (!pfile.is_open())
@@ -192,20 +192,20 @@ void patch::process(int id, string path, bool isPacking)
 		for (int bh_index = 0; bh_index < bh.size(); bh_index++)
 		{
 			cdrmBlockHeaderOffset += lastCdrmBlockSize;
-			string uCdrmFilePath = subDir + "\\" + to_string(bh_index) + ".raw";
+			string uCdrmFilePath = subDir + "\\" + to_string(bh_index) + ".dmp";
 			CDRM_BlockHeader &cdrmheader = bh[bh_index].get();
 			lastCdrmBlockSize = (((cdrmheader.compressedSize + 0x0F) / 0x10) * 0x10);
 			tigerFiles[base][fileNo]->seekg(cdrmBlockHeaderOffset, SEEK_SET);
 			int rawDataStart = tigerFiles[base][fileNo]->tellg();
 			if (isPacking && !isFileExists(uCdrmFilePath))
 			{
-				cout << "\nFile [" << uCdrmFilePath << "] dosen't exist. Skipping...";
+				cout << "\nError: File [" << uCdrmFilePath << "] dosen't exist. Skipping...";
 				continue;
 			}
 			fstream uncompressedCdrm(uCdrmFilePath, ios_base::out | ios_base::binary);
 			if (!uncompressedCdrm.is_open())
 			{
-				cout << "\nUnable to open file [" << uCdrmFilePath << "]";
+				cout << "\nError: Unable to open file [" << uCdrmFilePath << "]";
 				continue;
 			}
 			const int compressed_chunk_size = 4096;
@@ -229,17 +229,17 @@ void patch::process(int id, string path, bool isPacking)
 				tigerFiles[base][fileNo]->read(compressed_data.get(), cdrmheader.compressedSize);
 				if ((errorCode = uncompress((Bytef*)uncompressed_data.get(), &bytesWritten, (Bytef*)compressed_data.get(), cdrmheader.compressedSize)) != Z_OK)
 				{
-					cout << "\nUncompress failure. Error code:" << errorCode;
+					cout << "\nError: Uncompress failure. Error code:" << errorCode;
 					exit(-1);
 				}
 				uncompressedCdrm.write(uncompressed_data.get(), cdrmheader.uncompressedSize);
 			}
 			break;
 			case 3:
-				cout << "\nskipped. unknown block type.";
+				cout << "\nError: skipped. unknown block type.";
 				break;
 			default:
-				cout << "\nUnknown block type.";
+				cout << "\nError: Unknown block type.";
 				exit(-1);
 			}
 			uncompressedCdrm.close();
@@ -247,7 +247,7 @@ void patch::process(int id, string path, bool isPacking)
 			fstream raw_file(uCdrmFilePath, ios_base::in | ios_base::out | ios_base::binary);
 			if (!raw_file.is_open())
 			{
-				cout << "\nUnable to open file [" << uCdrmFilePath << "]";
+				cout << "\nError: Unable to open file [" << uCdrmFilePath << "]";
 				continue;
 			}
 			uint32_t header = 0;
@@ -299,7 +299,7 @@ void patch::process(int id, string path, bool isPacking)
 				uncompressedCdrm.open(uCdrmFilePath, ios_base::in | ios_base::binary);
 				if (!uncompressedCdrm.is_open())
 				{
-					cout << "\nUnable to open file [" << uCdrmFilePath << "]";
+					cout << "\nError: Unable to open file [" << uCdrmFilePath << "]";
 					continue;
 				}
 
@@ -320,7 +320,7 @@ void patch::process(int id, string path, bool isPacking)
 					uncompressedCdrm.read(uncompressed_data.get(), cdrmheader.uncompressedSize);
 					if (compress((Bytef*)compressed_data.get(), &bytesWritten, (Bytef*)uncompressed_data.get(), cdrmheader.uncompressedSize) != Z_OK)
 					{
-						cout << "\nUncompress failure.";
+						cout << "\nError: Uncompress failure.";
 						exit(-1);
 					}
 					tigerFiles[base][fileNo]->write(compressed_data.get(), cdrmheader.compressedSize);
@@ -328,10 +328,10 @@ void patch::process(int id, string path, bool isPacking)
 				}
 				break;
 				case 3:
-					cout << "\nskipped. unknown block type.";
+					cout << "\nError: skipped. unknown block type.";
 					break;
 				default:
-					cout << "\nUnknown block type.";
+					cout << "\nError: Unknown block type.";
 					exit(-1);
 				}
 				uncompressedCdrm.close();
