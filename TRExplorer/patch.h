@@ -6,7 +6,7 @@ class patch
 	//first = file id, second = file array.
 	map<uint32_t, vector<fstream*>> tigerFiles;
 	fileHeader header;
-	string filePath;
+	string tigerFilePath;
 	//fstream pfile;
 	//vector<element> elements;
 public:

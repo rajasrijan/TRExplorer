@@ -14,38 +14,25 @@ using namespace std;
 int main(int argc, char *argv[])
 {
 	system("title rajasrijan's tiger decoder.");
-	patch p(argv[1]);
-	//p.unpackAll();
-	//p.unpack(0);
-	//p.unpack(212);
-	//p.pack(212);
 	if (argc == 2)
 	{
-		TIGER file(argv[1]);
-		cout << "\nValid IDs range from 0 to (DRMs-1)\n\n";
+
 		return 0;
 	}
-	else if (argc == 4)
+	else if (argc == 5)
 	{
+		string tigerFileLocation = argv[1];
 		string operation = argv[2];
-		TIGER file(argv[1]);
-
-		if (operation == "pack")
+		int drmIndex = atoi(argv[3]);
+		patch p(tigerFileLocation);
+		string outputLocation = argv[4];
+		if (operation == "unpack")
 		{
-			uint32_t nameHash = 0;
-			sscanf(argv[3], "%x", &nameHash);
-			file.pack(nameHash, "tmp");
+			p.unpack(drmIndex, outputLocation);
 		}
-		else if (operation == "unpack")
+		else if (operation == "pack")
 		{
-			uint32_t id = 0;
-			sscanf(argv[3], "%d", &id);
-			file.unpack(id, "tmp");
-		}
-		else
-		{
-			cout << "\nInvalid operation.\n";
-			exit(-1);
+			p.unpack(drmIndex, outputLocation);
 		}
 	}
 	else

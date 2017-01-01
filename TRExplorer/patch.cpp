@@ -25,6 +25,42 @@ bool isFileExists(const std::string& file) {
 	return (stat(file.c_str(), &buf) == 0);
 }
 
+bool dir(vector<string> &resultList, string pattern = "")
+{
+	string command = "dir /B \"" + pattern + "\"";
+	FILE* dirStdout = _popen(command.c_str(), "r");
+	char buffer[1024];
+	char* line = nullptr;
+	while ((line = fgets(buffer, sizeof(buffer), dirStdout)) != nullptr)
+	{
+		size_t pathLength = strlen(line);
+		if (pathLength > 0 && line[pathLength - 1] == '\n')
+			line[pathLength - 1] = 0;
+		resultList.push_back(line);
+	}
+	_pclose(dirStdout);
+	return 0;
+}
+
+string pathJoin(string first, string second)
+{
+	bool fe = (*first.rbegin()) == '\\';
+	bool ss = (*second.begin()) == '\\';
+	if (fe == false && ss == false)
+	{
+		return first + "\\" + second;
+	}
+	else if ((fe == true && ss == false) || (fe == false && ss == true))
+	{
+		return first + second;
+	}
+	else if ((fe == true && ss == true))
+	{
+		return first + second.substr(1, second.length() - 1);
+	}
+	return "";
+}
+
 std::streampos getFileSize(fstream *file)
 {
 	std::streampos pos = file->tellg();
@@ -34,11 +70,11 @@ std::streampos getFileSize(fstream *file)
 	return endPos;
 }
 
-patch::patch(string _path) :filePath(_path)
+patch::patch(string _tigerPath) :tigerFilePath(_tigerPath)
 {
 	int main_offset, drm_offset;
 	fstream pfile;
-	pfile.open(_path, ios_base::in | ios_base::out | ios_base::binary);
+	pfile.open(tigerFilePath, ios_base::in | ios_base::out | ios_base::binary);
 	if (!pfile.is_open())
 	{
 		cout << "Error Opening patch file\n";
@@ -57,7 +93,7 @@ patch::patch(string _path) :filePath(_path)
 	{
 		char pathTail[16] = { 0 };
 		std::sprintf(pathTail, ".%03d.tiger$2", i);
-		string tigerFileName = regex_replace(filePath, regex("[.]([0-9]*)[.]tiger"), pathTail);
+		string tigerFileName = regex_replace(tigerFilePath, regex("[.]([0-9]*)[.]tiger"), pathTail);
 		fstream *tmpFile = new fstream(tigerFileName, ios_base::in | ios_base::out | ios_base::binary);
 
 		if (!tmpFile->is_open())
@@ -68,52 +104,6 @@ patch::patch(string _path) :filePath(_path)
 		tigerFiles[hdr.fileId][i] = tmpFile;
 	}
 	header = fileHeader(0, tigerFiles[hdr.fileId][0]);
-	//header.get().count
-	//load table
-	//vector<elementHeader> elements = header.it();
-
-	//system("mkdir patch_drms");
-	//for (size_t i = 212; i < 213/*elements.size()*/; i++)
-	//{
-	//	uint32_t offset = elements[i].get().offset & 0xFFFFF800;
-	//	uint32_t base = elements[i].get().offset & 0x000007FF;
-	//	int size = elements[i].get().size;
-
-	//	DRMHeader drmHeader(offset, &pfile);
-	//	drmHeader.get().printHeader();
-	//	DRM_Header &drmHdr = drmHeader.get();
-
-	//	vector<unknownHeader2> uh2 = drmHeader.it((drmHdr.SectionCount*sizeof(unknown_header1)) + drmHdr.strlen1 + drmHdr.strlen2);
-	//	system(("mkdir patch_drms\\" + to_string(i)).c_str());
-
-	//	for (size_t j = 0; j < 1/*uh2.size()*/; j++)
-	//	{
-	//		string cdrmFilePath = ".\\patch_drms\\" + to_string(i) + "\\" + to_string(j) + ".cdrm";
-	//		uint32_t offset = uh2[j].get().offset & 0xFFFFF800;
-	//		uint32_t base = (uh2[j].get().offset & 0x000007F0) >> 4;
-	//		uint32_t fileNo = uh2[j].get().offset & 0x0000000F;
-	//		if (base != header.get().fileId)
-	//			continue;
-	//		int size = uh2[j].get().size;
-
-	//		CDRMHeader head(offset, &pfile);
-	//		
-	//		head.get().printHeader();
-
-	//		vector<CDRMBlockHeader> bh = head.it();
-	//		if (bh.size() % 2)
-	//			pfile.seekg(8, ios_base::cur);
-	//		fstream cdrmFile(cdrmFilePath, ios_base::binary | ios_base::out);
-	//		pfile.seekg(offset);
-	//		for (size_t z = 0; z < size; z += 0x800)
-	//		{
-	//			char d[0x800] = { 0 };
-	//			pfile.read(d, 0x800);
-	//			cdrmFile.write(d, 0x800);
-	//		}
-
-	//	}
-	//}
 }
 
 patch::~patch()
@@ -130,6 +120,7 @@ void patch::unpackAll(string path)
 void patch::process(int id, string path, bool isPacking)
 {
 	//load table
+	int errorCode = 0;
 	vector<elementHeader> elements = header.it();
 
 	if (id<0 || id >(int)elements.size())
@@ -195,11 +186,16 @@ void patch::process(int id, string path, bool isPacking)
 		vector<CDRMBlockHeader> bh = head.it();
 		subDir += "\\" + to_string(j);
 		system(("mkdir " + subDir).c_str());
+		int cdrmBlockHeaderOffset = tigerFiles[base][fileNo]->tellg();
+		int lastCdrmBlockSize = 0;
+		cdrmBlockHeaderOffset = ((cdrmBlockHeaderOffset + 0xF) / 0x10) * 0x10;
 		for (int bh_index = 0; bh_index < bh.size(); bh_index++)
 		{
+			cdrmBlockHeaderOffset += lastCdrmBlockSize;
 			string uCdrmFilePath = subDir + "\\" + to_string(bh_index) + ".raw";
 			CDRM_BlockHeader &cdrmheader = bh[bh_index].get();
-			tigerFiles[base][fileNo]->seekg(bh[bh_index].nativeSize(), SEEK_CUR);
+			lastCdrmBlockSize = (((cdrmheader.compressedSize + 0x0F) / 0x10) * 0x10);
+			tigerFiles[base][fileNo]->seekg(cdrmBlockHeaderOffset, SEEK_SET);
 			int rawDataStart = tigerFiles[base][fileNo]->tellg();
 			if (isPacking && !isFileExists(uCdrmFilePath))
 			{
@@ -229,10 +225,11 @@ void patch::process(int id, string path, bool isPacking)
 				auto_ptr<char> compressed_data(new char[cdrmheader.compressedSize]);
 				auto_ptr<char> uncompressed_data(new char[cdrmheader.uncompressedSize]);
 				uLongf bytesWritten = cdrmheader.uncompressedSize;
+				int lok = tigerFiles[base][fileNo]->tellg();
 				tigerFiles[base][fileNo]->read(compressed_data.get(), cdrmheader.compressedSize);
-				if (uncompress((Bytef*)uncompressed_data.get(), &bytesWritten, (Bytef*)compressed_data.get(), cdrmheader.compressedSize) != Z_OK)
+				if ((errorCode = uncompress((Bytef*)uncompressed_data.get(), &bytesWritten, (Bytef*)compressed_data.get(), cdrmheader.compressedSize)) != Z_OK)
 				{
-					cout << "\nUncompress failure.";
+					cout << "\nUncompress failure. Error code:" << errorCode;
 					exit(-1);
 				}
 				uncompressedCdrm.write(uncompressed_data.get(), cdrmheader.uncompressedSize);
@@ -354,7 +351,7 @@ void patch::pack(int id, string path)
 
 int patch::findEmptyCDRM(size_t sizeHint, uint32_t &offset, int &file, int &base)
 {
-	string newFileName = regex_replace(filePath, regex("[.]([0-9]*)[.]tiger"), ".004.tiger$2");
+	string newFileName = regex_replace(tigerFilePath, regex("[.]([0-9]*)[.]tiger"), ".004.tiger$2");
 	fstream newFile(newFileName, ios_base::in | ios_base::out | ios_base::binary | ios_base::app);
 
 	if (!newFile.is_open())
