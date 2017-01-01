@@ -14,6 +14,7 @@ public:
 	~patch();
 	void unpack(int id, string path = "output");
 	void unpackAll(string path = "output");
+	void process(int id, string path, bool isPacking);
 	void pack(int id, string path = "output");
 private:
 	int findEmptyCDRM(size_t sizeHint, uint32_t &offset, int &file, int &base);

@@ -45,7 +45,6 @@ class DDS
 {
 private:
 	DDS_Header header;
-public:
 	char* data;
 	uint32_t dataSize;
 public:
@@ -54,5 +53,7 @@ public:
 	bool deserialization(string fileName);
 	void serialization(string fileName);
 	~DDS(void);
+	uint32_t getDataSize();
+	char * getData();
 };
 

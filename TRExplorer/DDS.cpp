@@ -65,3 +65,13 @@ void DDS::serialization(string fileName)
 	ddsFile.write(data , dataSize);
 	ddsFile.close();
 }
+
+uint32_t DDS::getDataSize()
+{
+	return dataSize;
+}
+
+char* DDS::getData()
+{
+	return data;
+}

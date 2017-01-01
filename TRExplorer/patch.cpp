@@ -20,6 +20,19 @@ bool isDir(string pathname)
 		return false;
 }
 
+bool isFileExists(const std::string& file) {
+	struct stat buf;
+	return (stat(file.c_str(), &buf) == 0);
+}
+
+std::streampos getFileSize(fstream *file)
+{
+	std::streampos pos = file->tellg();
+	file->seekg(0, SEEK_END);
+	std::streampos endPos = file->tellg();
+	file->seekg(pos, SEEK_SET);
+	return endPos;
+}
 
 patch::patch(string _path) :filePath(_path)
 {
@@ -114,8 +127,7 @@ void patch::unpackAll(string path)
 		unpack(i, path);
 	}
 }
-
-void patch::unpack(int id, string path)
+void patch::process(int id, string path, bool isPacking)
 {
 	//load table
 	vector<elementHeader> elements = header.it();
@@ -152,16 +164,29 @@ void patch::unpack(int id, string path)
 
 		CDRMHeader head(offset, tigerFiles[base][fileNo]);
 		head.get().printHeader();
+		int cdrmFileFlag = 0;
+		if (isPacking)
+			cdrmFileFlag = ios_base::binary | ios_base::in;
+		else
+			cdrmFileFlag = ios_base::binary | ios_base::out;
 
-		fstream cdrmFile(cdrmFilePath, ios_base::binary | ios_base::out);
+		fstream cdrmFile(cdrmFilePath, cdrmFileFlag);
+		size_t cdrmFileSize = 0;
 		if (cdrmFile.is_open())
 		{
-			tigerFiles[base][fileNo]->seekg(offset);
-			for (int z = 0; z < size; z += 0x800)
+			if (!isPacking)
 			{
-				char d[0x800] = { 0 };
-				tigerFiles[base][fileNo]->read(d, 0x800);
-				cdrmFile.write(d, 0x800);
+				tigerFiles[base][fileNo]->seekg(offset);
+				for (int z = 0; z < size; z += 0x800)
+				{
+					char d[0x800] = { 0 };
+					tigerFiles[base][fileNo]->read(d, 0x800);
+					cdrmFile.write(d, 0x800);
+				}
+			}
+			else
+			{
+				cdrmFileSize = getFileSize(&cdrmFile);
 			}
 		}
 
@@ -175,7 +200,13 @@ void patch::unpack(int id, string path)
 			string uCdrmFilePath = subDir + "\\" + to_string(bh_index) + ".raw";
 			CDRM_BlockHeader &cdrmheader = bh[bh_index].get();
 			tigerFiles[base][fileNo]->seekg(bh[bh_index].nativeSize(), SEEK_CUR);
-			ofstream uncompressedCdrm(uCdrmFilePath, ios_base::out | ios_base::binary);
+			int rawDataStart = tigerFiles[base][fileNo]->tellg();
+			if (isPacking && !isFileExists(uCdrmFilePath))
+			{
+				cout << "\nFile [" << uCdrmFilePath << "] dosen't exist. Skipping...";
+				continue;
+			}
+			fstream uncompressedCdrm(uCdrmFilePath, ios_base::out | ios_base::binary);
 			if (!uncompressedCdrm.is_open())
 			{
 				cout << "\nUnable to open file [" << uCdrmFilePath << "]";
@@ -215,7 +246,8 @@ void patch::unpack(int id, string path)
 				exit(-1);
 			}
 			uncompressedCdrm.close();
-			ifstream raw_file(uCdrmFilePath, ios_base::in | ios_base::binary);
+
+			fstream raw_file(uCdrmFilePath, ios_base::in | ios_base::out | ios_base::binary);
 			if (!raw_file.is_open())
 			{
 				cout << "\nUnable to open file [" << uCdrmFilePath << "]";
@@ -223,148 +255,101 @@ void patch::unpack(int id, string path)
 			}
 			uint32_t header = 0;
 			raw_file.read((char*)&header, 4);
+			raw_file.seekg(0, SEEK_SET);
 			switch (header)
 			{
 			case 0x39444350:	//PDC9
 			{
-				raw_file.seekg(0, SEEK_END);
-				uint32_t pcd9_size = raw_file.tellg();
-				raw_file.seekg(0, SEEK_SET);
-				auto_ptr<char> pcd9_data(new char[pcd9_size]);
+				size_t pcd9_size = getFileSize(&raw_file);
+				size_t pcd9SizeNew = 0;
+				auto_ptr<char> pcd9_data(new char[pcd9_size]);	//Better way would be to use memory mapped files.
 				raw_file.read(pcd9_data.get(), pcd9_size);
 				PCD9_Header* pcd9 = (PCD9_Header*)pcd9_data.get();
-				DDS dds(pcd9->type, pcd9->height, pcd9->width, 0, pcd9->mipmap + 1, pcd9->format, (char*)(pcd9_data.get()) + sizeof(PCD9_Header), pcd9_size - sizeof(PCD9_Header));
-				dds.serialization(subDir + "\\" + to_string(bh_index) + ".dds");
+				string ddsFilePath = subDir + "\\" + to_string(bh_index) + ".dds";
+				if (!isPacking)
+				{
+					DDS dds(pcd9->type, pcd9->height, pcd9->width, 0, pcd9->mipmap + 1, pcd9->format, (char*)(pcd9_data.get()) + sizeof(PCD9_Header), pcd9_size - sizeof(PCD9_Header));
+					dds.serialization(ddsFilePath);
+				}
+				else
+				{
+					DDS dds;
+					dds.deserialization(ddsFilePath);
+					pcd9SizeNew = dds.getDataSize() + sizeof(PCD9_Header);
+					if (pcd9SizeNew != pcd9_size)
+					{
+						std::cout << "\nSize of old and new files dont match. This may corrupt files and render game unplayable.";
+						std::cout << "\nTruncating for now";
+						//auto_ptr<char> pcd9DataNew = auto_ptr<char>(new char[pcd9SizeNew]);
+					}
+					memcpy((char*)(pcd9_data.get()) + sizeof(PCD9_Header), dds.getData(), pcd9_size - sizeof(PCD9_Header));
+					// write to raw file for debugging purpose.
+					raw_file.seekp(0, SEEK_SET);
+					raw_file.write(pcd9_data.get(), pcd9_size);
+				}
 			}
 			break;
 			default:
 				break;
 			}
+			raw_file.close();
+
+
+			//	pack CDRM
+			if (isPacking)
+			{
+				tigerFiles[base][fileNo]->seekp(rawDataStart, SEEK_SET);
+				uncompressedCdrm.open(uCdrmFilePath, ios_base::in | ios_base::binary);
+				if (!uncompressedCdrm.is_open())
+				{
+					cout << "\nUnable to open file [" << uCdrmFilePath << "]";
+					continue;
+				}
+
+				switch (cdrmheader.blockType)
+				{
+					/*case 1:	//uncompressed
+						for (size_t current_bytes = 0; current_bytes < cdrmheader.compressedSize; current_bytes += compressed_chunk_size)
+						{
+							tigerFiles[base][fileNo]->read(compressed_data, compressed_chunk_size);
+							uncompressedCdrm.write(compressed_data, compressed_chunk_size);
+						}
+						break;*/
+				case 2:	//zlib
+				{
+					auto_ptr<char> compressed_data(new char[cdrmheader.compressedSize]);
+					auto_ptr<char> uncompressed_data(new char[cdrmheader.uncompressedSize]);
+					uLongf bytesWritten = cdrmheader.compressedSize;
+					uncompressedCdrm.read(uncompressed_data.get(), cdrmheader.uncompressedSize);
+					if (compress((Bytef*)compressed_data.get(), &bytesWritten, (Bytef*)uncompressed_data.get(), cdrmheader.uncompressedSize) != Z_OK)
+					{
+						cout << "\nUncompress failure.";
+						exit(-1);
+					}
+					tigerFiles[base][fileNo]->write(compressed_data.get(), cdrmheader.compressedSize);
+					tigerFiles[base][fileNo]->flush();
+				}
+				break;
+				case 3:
+					cout << "\nskipped. unknown block type.";
+					break;
+				default:
+					cout << "\nUnknown block type.";
+					exit(-1);
+				}
+				uncompressedCdrm.close();
+			}
 		}
 	}
+}
+void patch::unpack(int id, string path)
+{
+	process(id, path, false);
 }
 
 void patch::pack(int id, string path)
 {
-	map<int, string> cdrmToPack;
-	//load table
-	vector<elementHeader> elements = header.it();
-
-	if (id<0 || id >(int)elements.size())
-		return;
-	element &element = elements[id].get();
-	system(("mkdir " + path).c_str());
-
-	uint32_t offset = element.offset & 0xFFFFF800;
-	uint32_t base = (element.offset & 0x000007F0) >> 4;
-	uint32_t file = (element.offset & 0x0000000F);
-	int size = element.size;
-
-	DRMHeader drmHeader(offset, tigerFiles[base][file]);
-	DRM_Header &drmHdr = drmHeader.get();
-	drmHdr.printHeader();
-
-	vector<unknownHeader2> uh2 = drmHeader.it((drmHdr.SectionCount * sizeof(unknown_header1)) + drmHdr.strlen1 + drmHdr.strlen2);
-	string subDir = path + "\\" + to_string(id);
-	system(("mkdir " + subDir).c_str());
-
-
-	for (size_t j = 0; j < uh2.size(); j++)
-	{
-		string cdrmFilePath = subDir + "\\" + to_string(j) + ".cdrm";
-		ifstream cdrmFile(cdrmFilePath);
-		if (cdrmFile.is_open())
-		{
-			cdrmToPack[j] = cdrmFilePath;
-		}
-	}
-	if (!cdrmToPack.size())
-	{
-		return;
-	}
-	cout << "Files found to be packed" << endl;
-	for (auto it = cdrmToPack.begin(); it != cdrmToPack.end(); it++)
-	{
-		cout << "(" << it->first << ", " << it->second << ")" << endl;
-	}
-
-	int fileno = 0, baseno = 0;
-	if (((uh2[cdrmToPack.begin()->first].get().offset) & 0xF) > 3)
-	{
-		cout << "Already modded. replacing";
-		fileno = ((uh2[cdrmToPack.begin()->first].get().offset) & 0xF);
-		baseno = ((uh2[cdrmToPack.begin()->first].get().offset) & 0xF0) >> 4;
-		offset = ((uh2[cdrmToPack.begin()->first].get().offset) & 0xFFFFF800);
-	}
-	else
-		findEmptyCDRM(size, offset, fileno, baseno);
-
-	//	Pack cdrms
-	for (auto it = cdrmToPack.begin(); it != cdrmToPack.end(); it++)
-	{
-		for (auto cdrmHdr : uh2[it->first].it())
-		{
-
-		}
-		//uint32_t cdrmOffset = uh2[it->first].get().offset;
-		//uint32_t cdrmFileno = (cdrmOffset & 0xF);
-		//uint32_t cdrmbaseno = ((cdrmOffset)& 0xF0) >> 4;
-		//cdrmOffset = ((cdrmOffset)& 0xFFFFF800);
-		//CDRMHeader cdrmHeader(cdrmOffset, tigerFiles[cdrmbaseno][cdrmFileno]);
-
-		//string fileName = it->second;
-		//ifstream rawCdrmFile(fileName, ios_base::binary);
-		//if (!rawCdrmFile.is_open())
-		//{
-		//	cout << "File not fount." << endl;
-
-		//	continue;
-		//}
-		//fstream *tigerFile = tigerFiles[baseno][fileno];
-		//tigerFile->seekp(offset);
-
-		////	copy over files
-		//size = 0;
-		//while (rawCdrmFile.peek() != EOF)
-		//{
-		//	char data[0x800] = { 0 };
-		//	rawCdrmFile.read(data, 0x800);
-		//	tigerFile->write(data, 0x800);
-		//	size += 0x800;
-		//}
-
-		////	update offset in "unknown_header2"
-		//uh2[it->first].get().offset = (offset & 0xFFFFF800) | (baseno << 4) | (fileno & 0x0000000F);
-		//uh2[it->first].save();
-	}
-
-	/*for (size_t j = 0; j < uh2.size(); j++)
-	{
-		string cdrmFilePath = subDir + "\\" + to_string(j) + ".cdrm";
-		unknown_header2 &uheader2 = uh2[j].get();
-		uint32_t offset = uheader2.offset & 0xFFFFF800;
-		uint32_t base = (uheader2.offset & 0x000007F0) >> 4;
-		uint32_t fileNo = uheader2.offset & 0x0000000F;
-		if (base != header.get().fileId)
-			continue;
-		int size = uheader2.size;
-
-		CDRMHeader head(offset, &pfile);
-		head.get().printHeader();
-
-		vector<CDRMBlockHeader> bh = head.it();
-		fstream cdrmFile(cdrmFilePath, ios_base::binary | ios_base::out);
-		if (cdrmFile.is_open())
-		{
-			pfile.seekg(offset);
-			for (size_t z = 0; z < size; z += 0x800)
-			{
-				char d[0x800] = { 0 };
-				pfile.read(d, 0x800);
-				cdrmFile.write(d, 0x800);
-			}
-		}
-	}*/
+	process(id, path, true);
 }
 
 int patch::findEmptyCDRM(size_t sizeHint, uint32_t &offset, int &file, int &base)

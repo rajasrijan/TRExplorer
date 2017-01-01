@@ -18,8 +18,8 @@ int main(int argc, char *argv[])
 	//p.unpackAll();
 	//p.unpack(0);
 	//p.unpack(212);
-	p.pack(212);
-	/*if (argc == 2)
+	//p.pack(212);
+	if (argc == 2)
 	{
 		TIGER file(argv[1]);
 		cout << "\nValid IDs range from 0 to (DRMs-1)\n\n";
@@ -55,6 +55,6 @@ int main(int argc, char *argv[])
 		cout << "\tOPERATION\tUNPACK/PACK\n";
 		cout << "\tID\t\tID in the .tiger file to pack/unpack\n\n";
 		return -1;
-	}*/
+	}
 	return 0;
 }

@@ -376,10 +376,10 @@ auto_ptr<char> TIGER::decodePCD9(auto_ptr<char> dataStream, uint32_t &size, stri
 				exit(-1);
 			}
 			PCD9_Header tmp = *table;
-			size = dds.dataSize + sizeof(PCD9_Header);
+			size = dds.getDataSize() + sizeof(PCD9_Header);
 			dataStream.reset(new char[size]);
 			table = (PCD9_Header*)dataStream.get();
-			memcpy((char*)table + sizeof(PCD9_Header), dds.data, dds.dataSize);
+			memcpy((char*)table + sizeof(PCD9_Header), dds.getData(), dds.getDataSize());
 			*table = tmp;
 		}
 		return dataStream;
