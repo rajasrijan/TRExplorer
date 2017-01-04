@@ -355,7 +355,7 @@ public:
 		return sizeof(T);
 	}
 
-	vector<sT> it(int padd = 0)
+	vector<sT> getIterator(int padd = 0)
 	{
 		int child_offset = offset + sizeof(T) + padd;
 		filestream->seekg(child_offset);

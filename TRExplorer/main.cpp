@@ -14,34 +14,37 @@ using namespace std;
 int main(int argc, char *argv[])
 {
 	system("title rajasrijan's tiger decoder.");
-	if (argc == 2)
-	{
 
-		return 0;
-	}
-	else if (argc == 5)
+	if (argc >= 2)
 	{
 		string tigerFileLocation = argv[1];
 		string operation = argv[2];
-		int drmIndex = atoi(argv[3]);
-		patch p(tigerFileLocation);
-		string outputLocation = argv[4];
-		if (operation == "unpack")
+		patch p(tigerFileLocation, true);
+		if (operation == "info")
 		{
-			p.unpack(drmIndex, outputLocation);
+			p.printNameHashes();
 		}
-		else if (operation == "pack")
+		else if (argc == 5)
 		{
-			p.unpack(drmIndex, outputLocation);
+			int drmIndex = atoi(argv[3]);
+			string outputLocation = argv[4];
+			if (operation == "unpack")
+			{
+				p.unpack(drmIndex, outputLocation, true);
+			}
+			else if (operation == "pack")
+			{
+				p.pack(drmIndex, outputLocation);
+			}
 		}
-	}
-	else
-	{
-		cout << "Format:\n\n" << argv[0] << " <LOCATION> <OPERATION> <ID>\n\n";
-		cout << "\tLOCATION\tLocation of bigfiles.\n";
-		cout << "\tOPERATION\tUNPACK/PACK\n";
-		cout << "\tID\t\tID in the .tiger file to pack/unpack\n\n";
-		return -1;
+		else
+		{
+			cout << "Format:\n\n" << argv[0] << " <LOCATION> <OPERATION> <ID>\n\n";
+			cout << "\tLOCATION\tLocation of bigfiles.\n";
+			cout << "\tOPERATION\tUNPACK/PACK\n";
+			cout << "\tID\t\tID in the .tiger file to pack/unpack\n\n";
+			return -1;
+		}
 	}
 	return 0;
 }

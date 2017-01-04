@@ -70,7 +70,7 @@ std::streampos getFileSize(fstream *file)
 	return endPos;
 }
 
-patch::patch(string _tigerPath) :tigerFilePath(_tigerPath)
+patch::patch(string _tigerPath, bool silent) :tigerFilePath(_tigerPath)
 {
 	int main_offset;
 	fstream pfile;
@@ -85,7 +85,8 @@ patch::patch(string _tigerPath) :tigerFilePath(_tigerPath)
 	fileHeader tmpHeader(0, &pfile);
 	pfile.close();
 	file_header &hdr = tmpHeader.get();
-	hdr.printHeader();
+	if (!silent)
+		hdr.printHeader();
 
 	tigerFiles[hdr.fileId] = vector<fstream*>(hdr.NumberOfFiles);
 
@@ -117,11 +118,12 @@ void patch::unpackAll(string path)
 		unpack(i, path);
 	}
 }
-void patch::process(int id, string path, bool isPacking)
+
+void patch::process(int id, string path, bool isPacking, bool silent)
 {
 	//load table
 	int errorCode = 0;
-	vector<elementHeader> elements = header.it();
+	vector<elementHeader> elements = header.getIterator();
 
 	if (id<0 || id >(int)elements.size())
 		return;
@@ -135,9 +137,9 @@ void patch::process(int id, string path, bool isPacking)
 
 	DRMHeader drmHeader(offset, tigerFiles[base][file]);
 	DRM_Header &drmHdr = drmHeader.get();
-	drmHdr.printHeader();
+	if (!silent)drmHdr.printHeader();
 
-	vector<unknownHeader2> uh2 = drmHeader.it((drmHdr.SectionCount * sizeof(unknown_header1)) + drmHdr.strlen1 + drmHdr.strlen2);
+	vector<unknownHeader2> uh2 = drmHeader.getIterator((drmHdr.SectionCount * sizeof(unknown_header1)) + drmHdr.strlen1 + drmHdr.strlen2);
 	string subDir = path + "\\" + to_string(id);
 	system(("mkdir " + subDir).c_str());
 
@@ -154,7 +156,7 @@ void patch::process(int id, string path, bool isPacking)
 		int size = uheader2.size;
 
 		CDRMHeader head(offset, tigerFiles[base][fileNo]);
-		head.get().printHeader();
+		if (!silent)head.get().printHeader();
 		int cdrmFileFlag = 0;
 		if (isPacking)
 			cdrmFileFlag = ios_base::binary | ios_base::in;
@@ -183,7 +185,7 @@ void patch::process(int id, string path, bool isPacking)
 
 		/*rewind to begening of CDRM*/
 		tigerFiles[base][fileNo]->seekg(offset);
-		vector<CDRMBlockHeader> bh = head.it();
+		vector<CDRMBlockHeader> bh = head.getIterator();
 		subDir += "\\" + to_string(j);
 		system(("mkdir " + subDir).c_str());
 		int cdrmBlockHeaderOffset = tigerFiles[base][fileNo]->tellg();
@@ -267,6 +269,7 @@ void patch::process(int id, string path, bool isPacking)
 				{
 					DDS dds(pcd9->type, pcd9->height, pcd9->width, 0, pcd9->mipmap + 1, pcd9->format, (char*)(pcd9_data.get()) + sizeof(PCD9_Header), pcd9_size - sizeof(PCD9_Header));
 					dds.serialization(ddsFilePath);
+					cout << ddsFilePath << endl;
 				}
 				else
 				{
@@ -339,9 +342,10 @@ void patch::process(int id, string path, bool isPacking)
 		}
 	}
 }
-void patch::unpack(int id, string path)
+
+void patch::unpack(int id, string path, bool silent)
 {
-	process(id, path, false);
+	process(id, path, false, silent);
 }
 
 void patch::pack(int id, string path)
@@ -397,4 +401,13 @@ int patch::getCDRM(uint32_t offset, CDRMHeader & cdrmHeader)
 	offset = ((offset) & 0xFFFFF800);
 	cdrmHeader = CDRMHeader(offset, tigerFiles[baseno][fileno]);
 	return 0;
+}
+
+void patch::printNameHashes()
+{
+	vector<elementHeader> elements = header.getIterator();
+	for (elementHeader it : elements)
+	{
+		cout << hex << it.get().nameHash << "\n";
+	}
 }
