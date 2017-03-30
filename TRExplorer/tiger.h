@@ -67,12 +67,55 @@ public:
 	vector<unknown_header2> it(iostream *dataStream, int dummy = 0)
 	{
 		vector<unknown_header2> vec(SectionCount);
-		dataStream->read((char*)vec.data(), SectionCount*sizeof(unknown_header2));
+		dataStream->read((char*)vec.data(), SectionCount * sizeof(unknown_header2));
 		return vec;
 	}
 };
 
 //DRM end
+
+class StringTable_Header
+{
+public:
+	uint32_t local; // 0x00 for english
+	uint32_t unknownCount;
+	uint32_t tableRange;
+	StringTable_Header() :local(0), unknownCount(0), tableRange(0)
+	{}
+	~StringTable_Header()
+	{}
+	void load(iostream *dataStream)
+	{
+		dataStream->read((char*)this, sizeof(StringTable_Header));
+	}
+	void save(iostream *dataStream)
+	{
+		dataStream->write((char*)this, sizeof(StringTable_Header));
+	}
+	void printHeader()
+	{
+		cout << "StringTable Header\n";
+		cout << "\nLocal\t\t:" << local;
+		cout << "\nunknownCount\t:" << unknownCount;
+		cout << "\ntableRange\t:" << tableRange;
+		cout << endl;
+	}
+
+	vector<uint32_t> it(iostream *dataStream, int dummy = 0)
+	{
+		vector<uint32_t> vec(tableRange);
+		uint32_t index = 0;
+		while (index < tableRange)
+		{
+			uint32_t tmp = 0;
+			dataStream->read((char*)&tmp, sizeof(uint32_t));
+			vec[index] = tmp;
+			index++;
+
+		}
+		return vec;
+	}
+};
 
 // TIGER START
 struct element
@@ -113,7 +156,7 @@ public:
 	vector<element> it(fstream* filestream)
 	{
 		vector<struct element> v(count);
-		filestream->read((char*)v.data(), v.size()*sizeof(element));
+		filestream->read((char*)v.data(), v.size() * sizeof(element));
 		return v;
 	}
 };
@@ -167,7 +210,7 @@ public:
 	vector<CDRM_BlockHeader> it(iostream *dataStream)
 	{
 		vector<CDRM_BlockHeader> vec(count);
-		dataStream->read((char*)vec.data(), count*sizeof(CDRM_BlockHeader));
+		dataStream->read((char*)vec.data(), count * sizeof(CDRM_BlockHeader));
 		return vec;
 	}
 };
@@ -378,11 +421,12 @@ public:
 };
 
 typedef FormatHelperNoChild<CDRM_BlockHeader>	CDRMBlockHeader;
+typedef FormatHelperNoChild<uint32_t>	StringTableOffset;
 typedef FormatHelper<CDRM_Header, CDRMBlockHeader> CDRMHeader;
 typedef FormatHelperNoChild<unknown_header1> unknownHeader1;
 typedef FormatHelper<unknown_header2, CDRMHeader> unknownHeader2;
 typedef FormatHelper<DRM_Header, unknownHeader2> DRMHeader;
 typedef FormatHelper<element, DRMHeader> elementHeader;
 typedef FormatHelper<file_header, elementHeader> fileHeader;
-
+typedef FormatHelper<StringTable_Header, StringTableOffset> StringTableHeader;
 #endif // !TIGER_H

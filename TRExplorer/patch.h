@@ -12,9 +12,9 @@ class patch
 public:
 	patch(string _path, bool silent = false);
 	~patch();
-	void unpack(int id, string path = "output", bool silent = false);
+	int unpack(int id, string path = "output", bool silent = false);
 	void unpackAll(string path = "output");
-	void process(int id, string path, bool isPacking, bool silent = false);
+	int process(int id, string path, bool isPacking, bool silent = false);
 	void pack(int id, string path = "output");
 	void printNameHashes();
 private:

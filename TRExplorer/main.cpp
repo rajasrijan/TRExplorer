@@ -13,6 +13,7 @@ using namespace std;
 
 int main(int argc, char *argv[])
 {
+	int ret = 0;
 	system("title rajasrijan's tiger decoder.");
 
 	if (argc >= 2)
@@ -30,7 +31,7 @@ int main(int argc, char *argv[])
 			string outputLocation = argv[4];
 			if (operation == "unpack")
 			{
-				p.unpack(drmIndex, outputLocation, true);
+				ret = p.unpack(drmIndex, outputLocation, true);
 			}
 			else if (operation == "pack")
 			{
@@ -43,8 +44,8 @@ int main(int argc, char *argv[])
 			cout << "\tLOCATION\tLocation of bigfiles.\n";
 			cout << "\tOPERATION\tUNPACK/PACK\n";
 			cout << "\tID\t\tID in the .tiger file to pack/unpack\n\n";
-			return -1;
+			return 1;
 		}
 	}
-	return 0;
+	return ret;
 }

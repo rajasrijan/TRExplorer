@@ -7,7 +7,7 @@ TIGER::TIGER(string fileLocation, bool _writeDRM) :writeDRM(_writeDRM), currentM
 	if (!mainFile->is_open())
 	{
 		cout << "Couldn't open file.\nTry running as Admin\n\n";
-		exit(-1);
+		exit(1);
 	}
 	basePath = fileLocation.substr(0, fileLocation.find_last_of("\\") + 1);
 	tigerFiles.push_back(mainFile);
@@ -29,7 +29,7 @@ TIGER::TIGER(string fileLocation, bool _writeDRM) :writeDRM(_writeDRM), currentM
 			if (!tmp->is_open())
 			{
 				cout << "Failed";
-				exit(-1);
+				exit(1);
 			}
 			cout << "success\n";
 			tigerFiles.push_back(tmp);
@@ -186,7 +186,7 @@ uint32_t TIGER::decodeCDRM(iostream *dataStream, uint32_t &size, string &path, s
 	CDRM_Header table;
 	dataStream->read((char*)&table, sizeof(CDRM_Header));
 	if (table.magic != 0x4D524443)
-		exit(-1);
+		exit(1);
 	vector<CDRM_BlockHeader> BlockHeader(table.count);
 	dataStream->read((char*)BlockHeader.data(), table.count*sizeof(CDRM_BlockHeader));
 
@@ -277,7 +277,7 @@ uint32_t TIGER::decodeCDRM(iostream *dataStream, uint32_t &size, string &path, s
 		if (total_size != size)
 		{
 			cout << "Incorrect size\n";
-			exit(-1);
+			exit(1);
 		}
 
 		/*Find next free CDRM*/
@@ -373,7 +373,7 @@ auto_ptr<char> TIGER::decodePCD9(auto_ptr<char> dataStream, uint32_t &size, stri
 			if (!dds.deserialization(fullpath))
 			{
 				cout << "\nError opening dds file.\n";
-				exit(-1);
+				exit(1);
 			}
 			PCD9_Header tmp = *table;
 			size = dds.getDataSize() + sizeof(PCD9_Header);

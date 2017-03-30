@@ -59,6 +59,11 @@ namespace TRExplorerGUI
 
         private void Window_Initialized(object sender, EventArgs e)
         {
+            if (Properties.Settings.Default.tigerFilePath != null && Properties.Settings.Default.tigerFilePath != "")
+            {
+                tigerFileLocationTextBox.Text = Properties.Settings.Default.tigerFilePath;
+
+            }
             List<ImageListing> items = new List<ImageListing>();
             for (int i = 0; i < 10; i++)
             {
@@ -96,6 +101,8 @@ namespace TRExplorerGUI
 
             drmBrowserTree.ItemsSource = lines;
             TRExplorer.WaitForExit();
+            Properties.Settings.Default.tigerFilePath = tigerFileLocation;
+            Properties.Settings.Default.Save();
         }
 
         private void drmBrowserTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -123,7 +130,7 @@ namespace TRExplorerGUI
 
         private void Window_Closed(object sender, EventArgs e)
         {
-            Directory.Delete("output", true);
+            //Directory.Delete("output", true);
         }
     }
 }
