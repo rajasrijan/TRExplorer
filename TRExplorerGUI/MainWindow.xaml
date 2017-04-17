@@ -5,39 +5,40 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TRExplorerGUI"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525" Initialized="Window_Initialized" Closed="Window_Closed">
+        Title="MainWindow" Height="600" Width="800" Initialized="Window_Initialized" Closed="Window_Closed">
     <Grid>
-        <TextBox x:Name="tigerFileLocationTextBox" Height="20" VerticalAlignment="Top" TextWrapping="Wrap" Text="Enter tiger file location and press load."/>
-        <UniformGrid VerticalAlignment="Stretch" Margin="0,20,0,0">
-            <TreeView x:Name="drmBrowserTree" VerticalAlignment="Stretch" SelectedItemChanged="drmBrowserTree_SelectedItemChanged">
-                <TreeView.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Path=DisplayText}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </TreeView.ItemTemplate>
-            </TreeView>
-            <ListView x:Name="imageListView" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" SelectionMode="Single" HorizontalAlignment="Stretch">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Columns="3" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel>
-                            <Image Margin="1" Source="{Binding Path}" Height="200" Width="200"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListView>
-            <Image></Image>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Button Name="loadButton" Margin="5" Width="50" Height="20" Click="loadButton_Click">Load</Button>
-                <Button Name="test1" Margin="5" Width="50" Height="20">test2</Button>
-                <Button Name="test2" Margin="5" Width="50" Height="20">test3</Button>
-            </StackPanel>
-        </UniformGrid>
+        <TextBox x:Name="tigerFileLocationTextBox" Height="23" VerticalAlignment="Top" TextWrapping="Wrap" Text="Enter tiger file location and press load." Margin="10,10,65,0"/>
+        <TreeView x:Name="drmBrowserTree" SelectedItemChanged="drmBrowserTree_SelectedItemChanged" Margin="10,66,0,9.4" HorizontalAlignment="Left" Width="180">
+            <TreeView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Path=DisplayText}" />
+                    </StackPanel>
+                </DataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,10" IsEnabled="True">
+            <Button Name="extractBtn" Margin="5" Width="50" Height="20" Click="extractBtn_Click" IsEnabled="False">Extract</Button>
+            <Button Name="replaceBtn" Margin="5" Width="50" Height="20" Click="replaceBtn_Click" IsEnabled="False">Replace</Button>
+            <Button Name="repackBtn" Margin="5" Width="50" Height="20" Click="repackBtn_Click">Repack</Button>
+        </StackPanel>
+        <Button x:Name="loadButton" Margin="0,10,10.4,0" Click="loadButton_Click" Content="Load" Height="23" VerticalAlignment="Top" HorizontalAlignment="Right" Width="50"/>
+        <ListView x:Name="imageListView" HorizontalAlignment="Stretch" Margin="195,38,10.4,45.8" SelectionMode="Single">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="5"  VerticalAlignment="Top"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Width="200" Height="200">
+                        <Image Source="{Binding Path}" HorizontalAlignment="Stretch" VerticalAlignment="Top" Stretch="UniformToFill" />
+                        <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" VerticalAlignment="Bottom" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+        <TextBox x:Name="searchBox" HorizontalAlignment="Left" Height="23" Margin="10,38,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="125" ToolTip="Search text"/>
+        <Button x:Name="searchBtn" Content="Search" Width="50" Height="23" Margin="140,38,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Click="searchBtn_Click"/>
     </Grid>
 </Window>

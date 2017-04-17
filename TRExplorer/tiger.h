@@ -8,17 +8,20 @@
 #include <stdint.h>
 #include <memory>
 #include <map>
+#include <algorithm>
+#include "cdrm.h"
 
-#define ALIGN_TO(address,alignment) ((address+alignment-1)/alignment)*alignment
+#define ALIGN_TO(address,alignment) (((address+alignment-1)/alignment)*alignment)
+#define TIGER_FILEID_MASK (0x7FF)
 
 using namespace std;
 
-//	DRM start.
+extern map<uint32_t, void*> tigerPtrMap;
 
 struct unknown_header1
 {
 	uint32_t DataSize;
-	uint32_t type;
+	uint32_t ddsFlags;
 	uint32_t flags;
 	uint32_t ID;
 	uint32_t u3;
@@ -35,7 +38,26 @@ public:
 	{
 		filestream->write((char*)this, sizeof(unknown_header2));
 	}
+	int setSize(size_t newSize);
+	CDRM_Header* getCDRMPtr()
+	{
+		if (tigerPtrMap.find(offset & TIGER_FILEID_MASK) != tigerPtrMap.end())
+		{
+			return (CDRM_Header*)((char*)(tigerPtrMap[offset & TIGER_FILEID_MASK]) + (offset&(~TIGER_FILEID_MASK)));
+		}
+		else
+		{
+			fprintf(stderr, "Error occured trying to read offset [%#X]. Not implimented\n", offset);
+			return nullptr;
+		}
+	}
+	uint32_t getCDRMDataSize()
+	{
+		return size;
+	}
+	CDRM_BlockFooter* getCDRMFooter();
 };
+
 class DRM_Header
 {
 public:
@@ -70,6 +92,14 @@ public:
 		dataStream->read((char*)vec.data(), SectionCount * sizeof(unknown_header2));
 		return vec;
 	}
+	unknown_header2* getUnknownHeaders2()
+	{
+		return (unknown_header2*)((char*)this + sizeof(DRM_Header) + ((SectionCount * sizeof(unknown_header1)) + strlen1 + strlen2));
+	}
+	uint32_t getUnknownHeaders2Count()
+	{
+		return SectionCount;
+	}
 };
 
 //DRM end
@@ -80,17 +110,13 @@ public:
 	uint32_t local; // 0x00 for english
 	uint32_t unknownCount;
 	uint32_t tableRange;
-	StringTable_Header() :local(0), unknownCount(0), tableRange(0)
-	{}
-	~StringTable_Header()
-	{}
-	void load(iostream *dataStream)
+	StringTable_Header()
 	{
-		dataStream->read((char*)this, sizeof(StringTable_Header));
+		printHeader();
 	}
-	void save(iostream *dataStream)
+	~StringTable_Header()
 	{
-		dataStream->write((char*)this, sizeof(StringTable_Header));
+
 	}
 	void printHeader()
 	{
@@ -100,21 +126,8 @@ public:
 		cout << "\ntableRange\t:" << tableRange;
 		cout << endl;
 	}
-
-	vector<uint32_t> it(iostream *dataStream, int dummy = 0)
-	{
-		vector<uint32_t> vec(tableRange);
-		uint32_t index = 0;
-		while (index < tableRange)
-		{
-			uint32_t tmp = 0;
-			dataStream->read((char*)&tmp, sizeof(uint32_t));
-			vec[index] = tmp;
-			index++;
-
-		}
-		return vec;
-	}
+	uint32_t* getStringIndicesPtr();
+	uint32_t getStringIndicesCount();
 };
 
 // TIGER START
@@ -124,6 +137,19 @@ struct element
 	uint32_t Local;
 	uint32_t size;
 	uint32_t offset;
+	void* getDataPtr()
+	{
+		if (tigerPtrMap.find(offset & TIGER_FILEID_MASK) != tigerPtrMap.end())
+		{
+			return (void*)((char*)(tigerPtrMap[offset & TIGER_FILEID_MASK]) + (offset&(~TIGER_FILEID_MASK)));
+		}
+		else
+		{
+			printf("Error occured trying to read offset [%#X]", offset);
+			exit(1);
+			return NULL;
+		}
+	}
 };
 
 class file_header
@@ -135,6 +161,11 @@ public:
 	uint32_t count;
 	uint32_t fileId;
 	char BasePath[32];
+public:
+	file_header()
+	{
+		loadPtrToTigerFile(this);
+	}
 	void printHeader()
 	{
 		cout << "Tiger Header\n";
@@ -144,6 +175,20 @@ public:
 		cout << "\nDRMs\t\t:" << count;
 		cout << "\nBase Path\t:" << BasePath;
 		cout << endl;
+	}
+	element* getElements()
+	{
+		return (element*)((char*)this + sizeof(file_header));
+	}
+	uint32_t getElementCount()
+	{
+		return count;
+	}
+	uint32_t getFileCount() { return NumberOfFiles; }
+	void loadPtrToTigerFile(void* ptr)
+	{
+		uint32_t count = (uint32_t)count_if(tigerPtrMap.begin(), tigerPtrMap.end(), [&](auto base)->bool {return ((base.first&(fileId << 4)) == (fileId << 4)); });
+		tigerPtrMap[(fileId << 4) | (count & 0x0F)] = ptr;
 	}
 	void load(iostream *dataStream)
 	{
@@ -162,65 +207,7 @@ public:
 };
 // TIGER END
 
-class CDRM_BlockHeader //(repeaded "count" times , 16 byte aligned at the end)
-{
-public:
-	uint32_t blockType : 8; // 1 is uncompressed , 2 is zlib , 3 is the new one
-	uint32_t uncompressedSize : 24; //size of uncompressed data chunk , max 0x40000
-	uint32_t compressedSize; //size of the compressed data block
-	CDRM_BlockHeader()
-	{}
-	~CDRM_BlockHeader()
-	{}
-	void load(iostream *dataStream)
-	{
-		dataStream->read((char*)this, sizeof(CDRM_BlockHeader));
-	}
-
-	void save(iostream *dataStream)
-	{
-		dataStream->write((char*)this, sizeof(CDRM_BlockHeader));
-	}
-};
-
-class CDRM_Header //CDRM Header file.
-{
-public:
-	uint32_t magic; // Always "CDRM" , so 0x4344524d in BE , 0x4d524443 in LE
-	uint32_t version; // Always 0 for TR9? Was 0x2 for some files in DX3 I think.
-	uint32_t count; // number of blocks
-	uint32_t offset; // zero.pretty much everything is 16 byte aligned
-	CDRM_Header()
-	{}
-	~CDRM_Header()
-	{}
-	void load(iostream *dataStream)
-	{
-		dataStream->read((char*)this, sizeof(CDRM_Header));
-	}
-	void printHeader()
-	{
-		cout << "CDRM Header\n";
-		cout << "Magic\t\t:" << hex << magic << dec;
-		cout << "\nVersion\t\t:" << version;
-		cout << "\nDRMs\t\t:" << count;
-		cout << "\noffset\t:" << offset;
-		cout << endl;
-	}
-	vector<CDRM_BlockHeader> it(iostream *dataStream)
-	{
-		vector<CDRM_BlockHeader> vec(count);
-		dataStream->read((char*)vec.data(), count * sizeof(CDRM_BlockHeader));
-		return vec;
-	}
-};
-
-struct CDRM_BlockFooter //(repeaded "count" times , 16 byte aligned at the end)
-{
-	uint8_t magic[4]; // Always "NEXT"
-	uint32_t relative_offset;
-};
-
+#pragma pack(push,1)
 struct PCD9_Header
 {
 	char magic[4];
@@ -233,200 +220,13 @@ struct PCD9_Header
 	uint32_t u1;
 	uint16_t width, height;
 	uint8_t bpp;
-	uint8_t mipmap;
 	uint16_t u2;
-	uint32_t type;
-};
-
-class TIGER
-{
-	enum DataType
+	uint8_t mipmap;
+	uint32_t ddsFlags;
+	char* getDataPtr()
 	{
-		DRMT = 0x00000016,
-		CDRM = 0x4D524443,
-		PCD9 = 0x50434439,
-		UNKNOWN1 = 0x32383133	//	Appears to be text
-	};
-	enum Mode
-	{
-		PACK,
-		UNPACK
-	};
-private:
-	vector<fstream*> tigerFiles;
-	file_header header;
-	string basePath;
-	Mode currentMode;
-public:
-	map<uint32_t, uint32_t> header_type_counter;
-	bool writeDRM;
-	bool writeDDS;
-	vector<element> elements;
-	TIGER(string fileLocation, bool _writeDRM = false);
-	~TIGER(void);
-	fstream* getRepositionedStream(uint32_t offset);
-	void printHeader();
-	auto_ptr<char> getData(int id, uint32_t &size);
-	void getDate(int id, char* buf, uint32_t size);
-	uint32_t getEntryCount();
-	DataType getType(iostream *dataStream);
-	auto_ptr<char> getDecodedData(int id, uint32_t &size, string path = "tmp");
-	bool decodeDRM(iostream *dataStream, uint32_t &size, string &path, string &name);
-	uint32_t decodeCDRM(iostream *dataStream, uint32_t &size, string &path, string &name);
-	auto_ptr<char> decodePCD9(auto_ptr<char> dataStream, uint32_t &size, string &path, string &name);
-	void dumpRAW(iostream *dataStream, uint32_t &size, string &path, string &name);
-	bool pack(uint32_t nameHash, string path);
-	bool unpack(uint32_t id, string path);
-
-	void listAll()
-	{
-		for (int i = 0; i < 200; i++)
-		{
-			printf_s("ID=%d,Hashname: %08x\n", i, elements[i].nameHash);
-		}
-	}
-
-	int findByHash(uint32_t nameHash)
-	{
-		for (uint32_t i = 0; i < elements.size(); i++)
-		{
-			if (nameHash == elements[i].nameHash)
-			{
-				return i;
-			}
-		}
-		return -1;
-	}
-
-	void scanCDRM()
-	{
-
+		return (char*)(&this[1]);
 	}
 };
-
-template<class T>
-class FormatHelperNoChild
-{
-private:
-	T t;
-	int offset;
-	fstream *filestream;
-public:
-	FormatHelperNoChild()
-	{
-		offset = 0;
-		filestream = 0;
-	}
-	FormatHelperNoChild(int off, fstream *file) :offset(off), filestream(file)
-	{
-		data->seekg(offset);
-		t.load(filestream);
-	}
-
-	FormatHelperNoChild(int off, fstream *file, T &_t) :offset(off), filestream(file), t(_t)
-	{
-
-	}
-
-	~FormatHelperNoChild()
-	{
-
-	}
-
-	T& get()
-	{
-		return t;
-	}
-
-	void setOffset(int off)
-	{
-		offset = off;
-	}
-	void setFile(fstream* stream)
-	{
-		filestream = stream;
-	}
-
-	void serialize()
-	{
-		filestream->seekp(offset);
-		filestream->write((char*)&t, sizeof(T));
-	}
-
-	static size_t nativeSize()
-	{
-		return sizeof(T);
-	}
-};
-
-template<class T, class sT>
-class FormatHelper
-{
-private:
-	T t;
-	int offset;
-	fstream *filestream;
-	//sT vec;
-public:
-	FormatHelper() :offset(0), filestream(0)
-	{
-		memset((void*)&t, 0, sizeof(T));
-	}
-	FormatHelper(int off, fstream *file) :offset(off), filestream(file)
-	{
-		filestream->seekg(offset);
-		t.load(filestream);
-	}
-
-	FormatHelper(int off, fstream *file, T &_t) :offset(off), filestream(file), t(_t)
-	{
-
-	}
-
-	~FormatHelper()
-	{
-
-	}
-
-	T& get()
-	{
-		return t;
-	}
-
-	static size_t nativeSize()
-	{
-		return sizeof(T);
-	}
-
-	vector<sT> getIterator(int padd = 0)
-	{
-		int child_offset = offset + sizeof(T) + padd;
-		filestream->seekg(child_offset);
-		auto tmp = t.it(filestream);
-		vector<sT> vec;
-
-		for (auto it = tmp.begin(); it < tmp.end(); it++)
-		{
-			vec.push_back(sT(child_offset, filestream, *it));
-			child_offset += sT::nativeSize();
-		}
-		return vec;
-	}
-
-	void save()
-	{
-		filestream->seekp(offset);
-		t.save(filestream);
-	}
-};
-
-typedef FormatHelperNoChild<CDRM_BlockHeader>	CDRMBlockHeader;
-typedef FormatHelperNoChild<uint32_t>	StringTableOffset;
-typedef FormatHelper<CDRM_Header, CDRMBlockHeader> CDRMHeader;
-typedef FormatHelperNoChild<unknown_header1> unknownHeader1;
-typedef FormatHelper<unknown_header2, CDRMHeader> unknownHeader2;
-typedef FormatHelper<DRM_Header, unknownHeader2> DRMHeader;
-typedef FormatHelper<element, DRMHeader> elementHeader;
-typedef FormatHelper<file_header, elementHeader> fileHeader;
-typedef FormatHelper<StringTable_Header, StringTableOffset> StringTableHeader;
+#pragma pack(pop)
 #endif // !TIGER_H

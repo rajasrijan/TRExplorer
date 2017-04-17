@@ -1,24 +1,24 @@
 #pragma once
+#include <Windows.h>
+#include <stdio.h>
+#include <strsafe.h>
 #include "tiger.h"
 
 class patch
 {
-	//first = file id, second = file array.
-	map<uint32_t, vector<fstream*>> tigerFiles;
-	fileHeader header;
+	vector<void*> tigerPtrList;
+	vector<HANDLE> fileHandles;
+	file_header *tiger;
 	string tigerFilePath;
-	//fstream pfile;
-	//vector<element> elements;
+	map<uint32_t, string> fileListHashMap;
 public:
 	patch(string _path, bool silent = false);
 	~patch();
-	int unpack(int id, string path = "output", bool silent = false);
-	void unpackAll(string path = "output");
-	int process(int id, string path, bool isPacking, bool silent = false);
+	int unpack(int id, string path = "output", bool silent = true);
+	int unpackAll(string path = "output");
+	int process(int id, int cdrmId, const string& path, bool isPacking, bool silent = true);
 	void pack(int id, string path = "output");
+	int pack(int id, int cdrmId, const string &path);
 	void printNameHashes();
-private:
-	int findEmptyCDRM(size_t sizeHint, uint32_t &offset, int &file, int &base);
-	int getCDRM(uint32_t offset, CDRMHeader& cdrmHeader);
 };
 

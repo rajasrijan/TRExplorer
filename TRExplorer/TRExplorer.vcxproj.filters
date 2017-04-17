@@ -21,21 +21,24 @@
     <ClCompile Include="tiger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DDS.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="patch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="crc32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DDSLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cdrm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tiger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DDS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="alldef.h">
@@ -47,5 +50,17 @@
     <ClInclude Include="patch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="crc32.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DDSLoader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cdrm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="filelist.txt" />
   </ItemGroup>
 </Project>

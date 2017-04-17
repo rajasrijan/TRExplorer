@@ -5,7 +5,7 @@
 #include <map>
 #include <string>
 #include <string.h>
-#include "DDS.h"
+#include "DDSLoader.h"
 #include "tiger.h"
 #include "patch.h"
 
@@ -15,7 +15,6 @@ int main(int argc, char *argv[])
 {
 	int ret = 0;
 	system("title rajasrijan's tiger decoder.");
-
 	if (argc >= 2)
 	{
 		string tigerFileLocation = argv[1];
@@ -28,14 +27,29 @@ int main(int argc, char *argv[])
 		else if (argc == 5)
 		{
 			int drmIndex = atoi(argv[3]);
+			string strIndex = argv[3];
 			string outputLocation = argv[4];
-			if (operation == "unpack")
+			if (strIndex == "all" && operation == "unpack")
+			{
+				ret = p.unpackAll(outputLocation);
+			}
+			else if (operation == "unpack")
 			{
 				ret = p.unpack(drmIndex, outputLocation, true);
 			}
 			else if (operation == "pack")
 			{
 				p.pack(drmIndex, outputLocation);
+			}
+		}
+		else if (argc == 6)
+		{
+			int drmIndex = atoi(argv[3]);
+			int cdrmIndex = atoi(argv[4]);
+			string inputFile = argv[5];
+			if (operation == "pack")
+			{
+				ret = p.pack(drmIndex, cdrmIndex, inputFile);
 			}
 		}
 		else
