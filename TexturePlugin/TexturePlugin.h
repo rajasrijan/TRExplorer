@@ -21,10 +21,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <zlib.h>
-#include <sstream>
-#include <string.h>
-#include "tiger.h"
-#include "Scene.h"
+#pragma once
+#define PLUGIN
+#include "PluginInterface.h"
+#include "TextureHeader.h"
 
-#pragma comment(lib , "zlibwapi.lib")
+class TexturePlugin : public PluginInterface
+{
+public:
+	TexturePlugin();
+	~TexturePlugin();
+	int check(void*, size_t, CDRM_TYPES& type);
+	int unpack(void*, size_t, void**, size_t&, CDRM_TYPES&);
+	int pack(void *pDataIn, size_t sz, void **ppDataOut, size_t &szOut, CDRM_TYPES &type);
+	int getType(void*, size_t);
+private:
+};
+
+API int createPluginInterface(PluginInterface** ppPluginInterface);
+API int destroyPluginInterface(PluginInterface* pPluginInterface);

@@ -21,10 +21,59 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <zlib.h>
-#include <sstream>
-#include <string.h>
-#include "tiger.h"
-#include "Scene.h"
+#pragma once
+#include <stdint.h>
 
-#pragma comment(lib , "zlibwapi.lib")
+//	ASCII value of "PCD9"
+#define PCD9_MAGIC 0x39444350
+
+#pragma pack(push,1)
+struct PCD9_Header
+{
+	union
+	{
+		uint32_t magic;
+		char magicStr[4];
+	};
+	union
+	{
+		uint32_t format;
+		char formatName[4];
+	};
+	uint32_t size;
+	uint32_t u1;
+	uint16_t width, height;
+	uint8_t bpp;
+	uint16_t u2;
+	uint8_t mipmap;
+	uint32_t ddsFlags;
+	char* getDataPtr()
+	{
+		return (char*)(&this[1]);
+	}
+};
+struct PCD11_Header
+{
+	union
+	{
+		uint32_t magic;
+		char magicStr[4];
+	};
+	union
+	{
+		uint32_t format;
+		char formatName[4];
+	};
+	uint32_t size;
+	uint32_t u1;
+	uint16_t width, height;
+	uint8_t bpp;
+	uint16_t u2;
+	uint8_t mipmap;
+	uint32_t ddsFlags;
+	char* getDataPtr()
+	{
+		return (char*)(&this[1]);
+	}
+};
+#pragma pack(pop)

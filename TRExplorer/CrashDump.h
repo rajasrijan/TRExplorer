@@ -21,10 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <zlib.h>
-#include <sstream>
-#include <string.h>
-#include "tiger.h"
-#include "Scene.h"
+#pragma once
+#include <Windows.h>
 
-#pragma comment(lib , "zlibwapi.lib")
+void SetupCrashHandler();

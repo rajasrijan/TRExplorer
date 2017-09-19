@@ -21,10 +21,25 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <zlib.h>
-#include <sstream>
-#include <string.h>
+#pragma once
+#include <Windows.h>
 #include "tiger.h"
-#include "Scene.h"
+#include <string>
 
-#pragma comment(lib , "zlibwapi.lib")
+using namespace std;
+
+class element_t
+{
+public:
+	element_t(void* ele, int ver);
+	~element_t();
+	const char* getName();
+protected:
+	friend class patch;
+	void* getElement();
+private:
+	char sName[MAX_PATH];
+	void* p_element;
+	int version;
+};
+

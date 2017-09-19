@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2017 Srijan Kumar Sharma
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 #ifndef TIGER_H
 #define TIGER_H
 
@@ -9,14 +32,19 @@
 #include <memory>
 #include <map>
 #include <algorithm>
+#include <string>
+#include <fstream>
 #include "cdrm.h"
 
 #define ALIGN_TO(address,alignment) (((address+alignment-1)/alignment)*alignment)
-#define TIGER_FILEID_MASK (0x7FF)
+#define TIGER_FILEID_MASK_V1 (0x7FF)
+#define TIGER_FILEID_MASK_V2 (0xF)
+#define TIGER_MAGIC		(0x53464154)
 
 using namespace std;
 
 extern map<uint32_t, void*> tigerPtrMap;
+extern map<uint32_t, string> fileListHashMap;
 
 struct unknown_header1
 {
@@ -27,23 +55,19 @@ struct unknown_header1
 	uint32_t u3;
 };
 
-class unknown_header2
+class unknown_header2_v1
 {
 public:
 	uint32_t u1;
 	uint32_t offset;
 	uint32_t size;
 	uint32_t u4;
-	void save(fstream* filestream)
-	{
-		filestream->write((char*)this, sizeof(unknown_header2));
-	}
 	int setSize(size_t newSize);
 	CDRM_Header* getCDRMPtr()
 	{
-		if (tigerPtrMap.find(offset & TIGER_FILEID_MASK) != tigerPtrMap.end())
+		if (tigerPtrMap.find(offset & TIGER_FILEID_MASK_V1) != tigerPtrMap.end())
 		{
-			return (CDRM_Header*)((char*)(tigerPtrMap[offset & TIGER_FILEID_MASK]) + (offset&(~TIGER_FILEID_MASK)));
+			return (CDRM_Header*)((char*)(tigerPtrMap[offset & TIGER_FILEID_MASK_V1]) + (offset&(~TIGER_FILEID_MASK_V1)));
 		}
 		else
 		{
@@ -51,6 +75,24 @@ public:
 			return nullptr;
 		}
 	}
+	uint32_t getCDRMDataSize()
+	{
+		return size;
+	}
+	CDRM_BlockFooter* getCDRMFooter();
+};
+
+class unknown_header2_v2
+{
+public:
+	uint32_t u1;
+	uint32_t u2;
+	uint32_t flags;
+	uint32_t offset;
+	uint32_t size;
+	uint32_t u3;
+	int setSize(size_t newSize);
+	CDRM_Header* getCDRMPtr();
 	uint32_t getCDRMDataSize()
 	{
 		return size;
@@ -66,10 +108,8 @@ public:
 	uint32_t unknown[3]; // all zero? must check all DRM files
 	uint32_t SectionCount;
 	uint32_t UnknownCount;
-	DRM_Header()
-	{}
-	~DRM_Header()
-	{}
+	DRM_Header(){}
+	~DRM_Header(){}
 	void load(iostream *dataStream)
 	{
 		dataStream->read((char*)this, sizeof(DRM_Header));
@@ -85,16 +125,10 @@ public:
 		cout << "\nUnknownCount\t:" << UnknownCount;
 		cout << endl;
 	}
-
-	vector<unknown_header2> it(iostream *dataStream, int dummy = 0)
+	void* getUnknownHeaders2()
 	{
-		vector<unknown_header2> vec(SectionCount);
-		dataStream->read((char*)vec.data(), SectionCount * sizeof(unknown_header2));
-		return vec;
-	}
-	unknown_header2* getUnknownHeaders2()
-	{
-		return (unknown_header2*)((char*)this + sizeof(DRM_Header) + ((SectionCount * sizeof(unknown_header1)) + strlen1 + strlen2));
+		char* tmp = (char*)this + sizeof(DRM_Header) + ((SectionCount * sizeof(unknown_header1)) + strlen1 + strlen2);
+		return tmp;
 	}
 	uint32_t getUnknownHeaders2Count()
 	{
@@ -131,17 +165,18 @@ public:
 };
 
 // TIGER START
-struct element
+class element_v1
 {
+public:
 	uint32_t nameHash;
 	uint32_t Local;
 	uint32_t size;
 	uint32_t offset;
 	void* getDataPtr()
 	{
-		if (tigerPtrMap.find(offset & TIGER_FILEID_MASK) != tigerPtrMap.end())
+		if (tigerPtrMap.find(offset & TIGER_FILEID_MASK_V1) != tigerPtrMap.end())
 		{
-			return (void*)((char*)(tigerPtrMap[offset & TIGER_FILEID_MASK]) + (offset&(~TIGER_FILEID_MASK)));
+			return (void*)((char*)(tigerPtrMap[offset & TIGER_FILEID_MASK_V1]) + (offset&(~TIGER_FILEID_MASK_V1)));
 		}
 		else
 		{
@@ -149,6 +184,38 @@ struct element
 			exit(1);
 			return NULL;
 		}
+	}
+	uint32_t getNameHash()
+	{
+		return nameHash;
+	}
+};
+
+class element_v2
+{
+public:
+	uint32_t nameHash;
+	uint32_t Local;
+	uint32_t size;
+	uint32_t unknown;
+	uint32_t flags;
+	uint32_t offset;
+	void* getDataPtr()
+	{
+		if (tigerPtrMap.find(offset & TIGER_FILEID_MASK_V2) != tigerPtrMap.end())
+		{
+			return (void*)((char*)(tigerPtrMap[offset & TIGER_FILEID_MASK_V2]) + (offset&(~TIGER_FILEID_MASK_V2)));
+		}
+		else
+		{
+			printf("Error occured trying to read offset [%#X]", offset);
+			exit(1);
+			return NULL;
+		}
+	}
+	uint32_t getNameHash()
+	{
+		return nameHash;
 	}
 };
 
@@ -168,17 +235,20 @@ public:
 	}
 	void printHeader()
 	{
-		cout << "Tiger Header\n";
-		cout << "Magic\t\t:" << hex << magic << dec;
-		cout << "\nVersion\t\t:" << version;
-		cout << "\nParts\t\t:" << NumberOfFiles;
-		cout << "\nDRMs\t\t:" << count;
-		cout << "\nBase Path\t:" << BasePath;
-		cout << endl;
+
+		printf("Tiger Header, Game version [%d], files [%d]\n", version, NumberOfFiles);
 	}
-	element* getElements()
+	void* getElement(int index)
 	{
-		return (element*)((char*)this + sizeof(file_header));
+		char* tmp = (char*)this + sizeof(file_header);
+		if (version == 0x04)
+		{
+			return  (element_v2*)tmp + index;
+		}
+		else
+		{
+			return  (element_v1*)tmp + index;
+		}
 	}
 	uint32_t getElementCount()
 	{
@@ -187,22 +257,15 @@ public:
 	uint32_t getFileCount() { return NumberOfFiles; }
 	void loadPtrToTigerFile(void* ptr)
 	{
-		uint32_t count = (uint32_t)count_if(tigerPtrMap.begin(), tigerPtrMap.end(), [&](auto base)->bool {return ((base.first&(fileId << 4)) == (fileId << 4)); });
-		tigerPtrMap[(fileId << 4) | (count & 0x0F)] = ptr;
-	}
-	void load(iostream *dataStream)
-	{
-		dataStream->read((char*)this, sizeof(file_header));
-	}
-	void save(iostream *dataStream)
-	{
-		dataStream->write((char*)this, sizeof(file_header));
-	}
-	vector<element> it(fstream* filestream)
-	{
-		vector<struct element> v(count);
-		filestream->read((char*)v.data(), v.size() * sizeof(element));
-		return v;
+		uint32_t count = (uint32_t)count_if(tigerPtrMap.begin(), tigerPtrMap.end(), [&](auto base)->bool {return (version == 4) ? true : ((base.first&(fileId << 4)) == (fileId << 4)); });
+		if (version == 0x04)
+		{
+			tigerPtrMap[count & 0x0F] = ptr;
+		}
+		else
+		{
+			tigerPtrMap[(fileId << 4) | (count & 0x0F)] = ptr;
+		}
 	}
 };
 // TIGER END
@@ -229,4 +292,5 @@ struct PCD9_Header
 	}
 };
 #pragma pack(pop)
+
 #endif // !TIGER_H

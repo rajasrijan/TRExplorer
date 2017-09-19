@@ -21,10 +21,36 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <zlib.h>
-#include <sstream>
-#include <string.h>
-#include "tiger.h"
-#include "Scene.h"
+#include "element.h"
 
-#pragma comment(lib , "zlibwapi.lib")
+element_t::element_t(void* ele, int ver) :p_element(ele), version(ver)
+{
+	memset(sName, 0, _countof(sName));
+}
+
+element_t::~element_t()
+{
+}
+
+const char * element_t::getName()
+{
+	if (sName[0] == 0)
+	{
+		uint32_t hash = (version == 4) ? ((element_v2*)p_element)->getNameHash() : ((element_v1*)p_element)->getNameHash();
+		auto NameIt = fileListHashMap.find(hash);
+		if (NameIt == fileListHashMap.end())
+		{
+			sprintf_s(sName, "%#x", hash);
+		}
+		else
+		{
+			strcpy_s(sName, NameIt->second.c_str());
+		}
+	}
+	return sName;
+}
+
+void * element_t::getElement()
+{
+	return p_element;
+}

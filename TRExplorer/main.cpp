@@ -1,65 +1,55 @@
-#define _CRT_SECURE_NO_WARNINGS
+/*
+MIT License
+
+Copyright (c) 2017 Srijan Kumar Sharma
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+#include <stdlib.h>  
+#include <crtdbg.h>  
 #include <iostream>
 #include <stdio.h>
 #include <memory>
 #include <map>
 #include <string>
 #include <string.h>
-#include "DDSLoader.h"
+#include <functional>
 #include "tiger.h"
 #include "patch.h"
+#include "gui.h"
+#include "CrashDump.h"
 
 using namespace std;
 
 int main(int argc, char *argv[])
 {
+	SetupCrashHandler();
 	int ret = 0;
 	system("title rajasrijan's tiger decoder.");
-	if (argc >= 2)
+	ret = loadPlugins();
+	if (ret)
 	{
-		string tigerFileLocation = argv[1];
-		string operation = argv[2];
-		patch p(tigerFileLocation, true);
-		if (operation == "info")
-		{
-			p.printNameHashes();
-		}
-		else if (argc == 5)
-		{
-			int drmIndex = atoi(argv[3]);
-			string strIndex = argv[3];
-			string outputLocation = argv[4];
-			if (strIndex == "all" && operation == "unpack")
-			{
-				ret = p.unpackAll(outputLocation);
-			}
-			else if (operation == "unpack")
-			{
-				ret = p.unpack(drmIndex, outputLocation, true);
-			}
-			else if (operation == "pack")
-			{
-				p.pack(drmIndex, outputLocation);
-			}
-		}
-		else if (argc == 6)
-		{
-			int drmIndex = atoi(argv[3]);
-			int cdrmIndex = atoi(argv[4]);
-			string inputFile = argv[5];
-			if (operation == "pack")
-			{
-				ret = p.pack(drmIndex, cdrmIndex, inputFile);
-			}
-		}
-		else
-		{
-			cout << "Format:\n\n" << argv[0] << " <LOCATION> <OPERATION> <ID>\n\n";
-			cout << "\tLOCATION\tLocation of bigfiles.\n";
-			cout << "\tOPERATION\tUNPACK/PACK\n";
-			cout << "\tID\t\tID in the .tiger file to pack/unpack\n\n";
-			return 1;
-		}
+		printf("Failed to load plugins\n");
+		return ret;
 	}
+	wxAppConsole *gui = wxCreateApp();
+	wxApp::SetInstance(gui);
+	wxEntry(argc, argv);
 	return ret;
 }
