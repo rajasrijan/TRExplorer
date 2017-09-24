@@ -199,9 +199,14 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
         //	unpack mesh components
         ComponentDataBlob *pComponentDataBlob = pSceneHeader->getComponentBlob(meshIdx);
         char* pComponentData = (char*)pSceneHeader->getComponentData(meshIdx);
-
+        int strInc = 0x100000;
+        size_t strSz = 0x100000;
+        size_t strPos = 0;
+        char *vectorString = (char*)malloc(strSz);
+        
         for (int compIdx = 0; compIdx < pComponentDataBlob->itemCount; compIdx++)
         {
+            strPos = 0;            
             ComponentValue *component = pComponentDataBlob->getComponents(compIdx);
             switch (component->itemOffsetType)
             {
@@ -212,15 +217,20 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
                 position_float_array->SetAttribute("count", pMeshHeader->numVerts * sources[0].stride);
                 accessor->SetAttribute("count", pMeshHeader->numVerts);
 
-                stringstream positionStringStream;
                 char* pVertexDataStart = pComponentData + component->itemValue;
                 for (size_t v = 0; v < pMeshHeader->numVerts; v++)
                 {
                     float* pVertexPtr = (float*)(pVertexDataStart + (pComponentDataBlob->vertexSize*v));
                     vVertexList.push_back(XMFLOAT3(pVertexPtr));
-                    positionStringStream << pVertexPtr[0] << " " << pVertexPtr[1] << " " << pVertexPtr[2] << " ";
+                    if (strSz - strPos < 0x30)
+                    {
+                        strSz += strInc;
+                        vectorString = (char*)realloc(vectorString, strSz);
+                    }
+                    size_t charWritten=snprintf(&vectorString[strPos], strSz - strPos, "%f %f %f ", pVertexPtr[0], pVertexPtr[1], pVertexPtr[2]);
+                    strPos += charWritten;
                 }
-                position_float_array->SetText(positionStringStream.str().c_str());
+                position_float_array->SetText(vectorString);
             };
             break;
             case CMP_Offset_TexCord:
@@ -230,16 +240,21 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
                 texture_float_array->SetAttribute("count", pMeshHeader->numVerts * sources[2].stride);
                 accessor->SetAttribute("count", pMeshHeader->numVerts);
 
-                stringstream textureStringStream;
                 char* pTexCordDataStart = pComponentData + component->itemValue;
                 for (size_t v = 0; v < pMeshHeader->numVerts; v++)
                 {
                     int16_t* pTexCordPtr = (int16_t*)(pTexCordDataStart + (pComponentDataBlob->vertexSize*v));
                     XMFLOAT2 tmp = uvParser(pTexCordPtr);
                     vTexCordList.push_back(tmp);
-                    textureStringStream << tmp.x << " " << tmp.y << " ";
+                    if (strSz - strPos < 0x30)
+                    {
+                        strSz += strInc;
+                        vectorString = (char*)realloc(vectorString, strSz);
+                    }
+                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%f %f ", tmp.x, tmp.y);
+                    strPos += charWritten;
                 }
-                texture_float_array->SetText(textureStringStream.str().c_str());
+                texture_float_array->SetText(vectorString);
             }
             break;
             case CMP_Offset_TexCord2:
@@ -257,16 +272,21 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
                 normal_float_array->SetAttribute("count", pMeshHeader->numVerts * 3);
                 accessor->SetAttribute("count", pMeshHeader->numVerts);
 
-                stringstream normalStringStream;
                 char* pNormDataStart = pComponentData + component->itemValue;
                 for (size_t v = 0; v < pMeshHeader->numVerts; v++)
                 {
                     uint8_t* pNormPtr = (uint8_t*)(pNormDataStart + (pComponentDataBlob->vertexSize*v));
                     XMFLOAT3 tmp = normParser(pNormPtr);
                     vNormList.push_back(tmp);
-                    normalStringStream << tmp.x << " " << tmp.y << " " << tmp.z << " ";
+                    if (strSz - strPos < 0x30)
+                    {
+                        strSz += strInc;
+                        vectorString = (char*)realloc(vectorString, strSz);
+                    }
+                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%f %f %f ", tmp.x, tmp.y , tmp.z);
+                    strPos += charWritten;
                 }
-                normal_float_array->SetText(normalStringStream.str().c_str());
+                normal_float_array->SetText(vectorString);
             }
             break;
             default:
@@ -274,7 +294,7 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
                 break;
             }
         }
-
+        free(vectorString);
         for (int faceIdx = 0; faceIdx < pMeshHeader->numFaceGroups; faceIdx++)
         {
             FaceHeader* pFaceHeader = pSceneHeader->getFaceHeader(faceGroupIdx);
@@ -328,15 +348,17 @@ int MeshPlugin::getType(void *, size_t)
 
 XMFLOAT2 MeshPlugin::uvParser(int16_t * pTex)
 {
-    float d = 2048.0;
-    return XMFLOAT2(((float)(pTex[0]) / d), ((float)(pTex[1]) / d));
+    float tmp = 0;
+    float u = modf((float)pTex[0] / 2048.0f, &tmp);
+    float v = modf((float)pTex[1] / 2048.0f, &tmp);
+    return XMFLOAT2(u, 1.0f-v);
 }
 
 XMFLOAT3 MeshPlugin::normParser(uint8_t * pNorm)
 {
     XMFLOAT3 normFlt((255.0f * (float)pNorm[0]) - (128.0f - (float)pNorm[3]),
         (255.0f * (float)pNorm[1]) - (128.0f - (float)pNorm[3]),
-        (255.0f * (float)pNorm[2]) - (128.0f - (float)pNorm[3]));
+        -((255.0f * (float)pNorm[2]) - (128.0f - (float)pNorm[3])));
     XMVECTOR normVec = XMLoadFloat3(&normFlt);
     XMStoreFloat3(&normFlt, XMVector3Normalize(normVec));
     return normFlt;
@@ -362,7 +384,6 @@ XMLElement * MeshPlugin::AddMaterial(XMLDocument &xmlScene, XMLElement * scene, 
         XMLElement* instance_effect = (XMLElement*)material->InsertEndChild(xmlScene.NewElement("instance_effect"));
         instance_effect->SetAttribute("url", ("#" + matName + "-fx").c_str());
     }
-
     return material;
 }
 

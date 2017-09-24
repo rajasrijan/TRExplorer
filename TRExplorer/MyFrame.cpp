@@ -93,8 +93,8 @@ MyFrame::MyFrame(wxWindow* parent, wxWindowID id, const wxString& title, const w
 
 	m_mgr.AddPane(m_thumbnailList, wxAuiPaneInfo().Center().CaptionVisible(false).CloseButton(false).PaneBorder(false).Dock().Resizable().FloatingSize(wxDefaultSize).Row(1));
 
-	m_RenderPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
-	m_mgr.AddPane(m_RenderPanel, wxAuiPaneInfo().Right().CaptionVisible(false).CloseButton(false).PaneBorder(false).Dock().Resizable().FloatingSize(wxDefaultSize).Row(2).Position(0).MinSize(wxSize(150, 300)));
+	//m_RenderPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
+	//m_mgr.AddPane(m_RenderPanel, wxAuiPaneInfo().Right().CaptionVisible(false).CloseButton(false).PaneBorder(false).Dock().Resizable().FloatingSize(wxDefaultSize).Row(2).Position(0).MinSize(wxSize(150, 300)));
 
 
 	m_mgr.Update();

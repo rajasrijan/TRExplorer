@@ -53,6 +53,7 @@ private:
 	void ExportSelection();
 	void ImportSelection();
 	void ExportSelectionRaw();
+    void ImportSelectionRaw();
 	wxDECLARE_EVENT_TABLE();
 };
 
@@ -61,6 +62,7 @@ enum POPUP_OPTIONS
 	ID_Export = 0,
 	ID_ExportRaw,
 	ID_Import,
+    ID_ImportRaw,
 };
 class MyApp : public wxApp
 {
