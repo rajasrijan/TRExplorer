@@ -21,38 +21,54 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
  */
-#include "element.h"
-#include <string.h>
+#pragma once
 
-element_t::element_t(void* ele, int ver) :
-		p_element(ele), version(ver)
-{
-	memset(sName, 0, ARRAY_SIZE(sName));
-}
+#define MAKEVERSION(x, y) (((x & 0xFFFF) << 16) | (y & 0xFFFF))
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 0
+#define VERSION MAKEVERSION(VERSION_MAJOR, VERSION_MINOR)
 
-element_t::~element_t()
-{
-}
+#ifdef PLUGIN
+#ifdef __GNUC__
+#define API extern "C" __attribute__((visibility("default")))
+#else
+#define API extern "C" __declspec(dllexport)
+#endif
+#else
+#define API
+#endif // PLUGIN
 
-const char * element_t::getName()
+enum CDRM_TYPES
 {
-	if (sName[0] == 0)
+	CDRM_TYPE_UNKNOWN = 0,
+	CDRM_TYPE_DDS = 1,
+	CDRM_TYPE_MESH = 2,
+	CDRM_TYPE_BINARY_BLOB = 3
+};
+
+class PluginInterface
+{
+  public:
+	PluginInterface()
 	{
-		uint32_t hash = (version == 4) ? ((element_v2*) p_element)->getNameHash() : ((element_v1*) p_element)->getNameHash();
-		auto NameIt = fileListHashMap.find(hash);
-		if (NameIt == fileListHashMap.end())
-		{
-			sprintf(sName, "%#x", hash);
-		}
-		else
-		{
-			strcpy(sName, NameIt->second.c_str());
-		}
 	}
-	return sName;
-}
 
-void * element_t::getElement()
-{
-	return p_element;
-}
+	~PluginInterface()
+	{
+	}
+	virtual int check(void *, size_t, CDRM_TYPES &type) = 0;
+	virtual int unpack(void *, size_t, void **, size_t &, CDRM_TYPES &) = 0;
+	virtual int pack(void *, size_t, void **, size_t &, CDRM_TYPES &) = 0;
+	virtual int getType(void *, size_t) = 0;
+	virtual uint32_t getPluginInterfaceVersion()
+	{
+		return VERSION;
+	}
+
+  private:
+};
+
+#ifndef PLUGIN
+typedef int (*createPluginInterface)(PluginInterface **ppPluginInterface);
+typedef int (*destroyPluginInterface)(PluginInterface *pPluginInterface);
+#endif // !PLUGIN

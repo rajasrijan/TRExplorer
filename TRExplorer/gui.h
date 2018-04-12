@@ -22,38 +22,39 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #pragma once
-#include <string>
-#include <wx\fileconf.h>
+#include <wx/fileconf.h>
 #include "MyFrame.h"
 #include "patch.h"
 #include "element.h"
+#include <string>
 
-using namespace std;
-
-class GUI :public MyFrame
+class GUI : public MyFrame
 {
-public:
-	GUI(wxWindow* parent);
+  public:
+	GUI(wxWindow *parent);
 	~GUI();
-private:
+
+  private:
 	patch *m_pTigerFile;
-	vector<wxTreeItemId> m_vNodeList;
-	vector<wxTreeItemId>::iterator m_itNodeSearchPos;
+	std::vector<std::pair<std::string, wxTreeItemId>> m_vNodeList;
+	std::vector<std::pair<std::string, wxTreeItemId>>::iterator m_itNodeSearchPos;
 	wxMenu *p_PopUp;
 	wxFileConfig g_mConfigFile;
-private:
-	void OnExit(wxCommandEvent& event);
-	void OnAbout(wxCommandEvent& event);
-	void OnOpenFile(wxCommandEvent & event);
-	void OnTreeSelectionChanged(wxTreeEvent & event);
-	void OnFindNext(wxCommandEvent & event);
-	void OnFindPrev(wxCommandEvent & event);
-	void OnThumbnailListContextMenu(wxContextMenuEvent & event);
-	void OnThumbContextMenuSelected(wxContextMenuEvent & event);
+
+  private:
+	void OnExit(wxCommandEvent &event);
+	void OnAbout(wxCommandEvent &event);
+	void OnOpenFile(wxCommandEvent &event);
+	void OnTreeSelectionChanged(wxTreeEvent &event);
+	void OnSearchEnter(wxCommandEvent &event);
+	void OnSearch(wxCommandEvent &event);
+	void OnThumbnailListContextMenu(wxContextMenuEvent &event);
+	void OnThumbContextMenuSelected(wxContextMenuEvent &event);
+	void SearchInTree(const std::string &search_term);
 	void ExportSelection();
 	void ImportSelection();
 	void ExportSelectionRaw();
-    void ImportSelectionRaw();
+	void ImportSelectionRaw();
 	wxDECLARE_EVENT_TABLE();
 };
 
@@ -62,27 +63,30 @@ enum POPUP_OPTIONS
 	ID_Export = 0,
 	ID_ExportRaw,
 	ID_Import,
-    ID_ImportRaw,
+	ID_ImportRaw,
 };
 class MyApp : public wxApp
 {
 	GUI *frame;
-public:
+
+  public:
 	MyApp();
+	~MyApp();
 	virtual bool OnInit();
 	virtual int OnExit();
 };
 
-class myTreeItemData :public wxTreeItemData
+class myTreeItemData : public wxTreeItemData
 {
-public:
-	myTreeItemData(const element_t &_ele) :m_itemElement(_ele), pList(nullptr)
-	{}
+  public:
+	myTreeItemData(const element_t &_ele) : m_itemElement(_ele), pList(nullptr)
+	{
+	}
 	~myTreeItemData()
 	{
 		delete pList;
 		pList = nullptr;
 	}
 	element_t m_itemElement;
-	vector<void*>* pList;
+	std::vector<void *> *pList;
 };

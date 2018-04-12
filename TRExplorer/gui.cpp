@@ -22,22 +22,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include "gui.h"
-#define NOMINMAX
-#include <windows.h>
-
 #include <assert.h>
 #include <stdio.h>
-#include <dxgiformat.h>
-#include <d3d11.h>
 #include <algorithm>
-#include <directxmath.h>
-#include "DirectXTex.h"
 #include <thread>
 #include <mutex>
-
-#pragma comment(lib,"DirectXTex.lib")
-
-using namespace DirectX;
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <wx/msgdlg.h>
+#include <wx/filedlg.h>
 
 wxBEGIN_EVENT_TABLE(GUI, wxFrame)
 EVT_MENU(wxID_OPEN, GUI::OnOpenFile)
@@ -45,12 +39,16 @@ EVT_MENU(wxID_EXIT, GUI::OnExit)
 EVT_MENU(wxID_ABOUT, GUI::OnAbout)
 EVT_TREE_SEL_CHANGED(wxID_NavigationTree, GUI::OnTreeSelectionChanged)
 EVT_COMMAND_CONTEXT_MENU(wxID_ThumbnailList, GUI::OnThumbnailListContextMenu)
-EVT_BUTTON(wxID_FindNextButton, GUI::OnFindNext)
-EVT_BUTTON(wxID_FindPrevButton, GUI::OnFindPrev)
+EVT_SEARCHCTRL_SEARCH_BTN(wxID_Search,GUI::OnSearch)
+EVT_TEXT_ENTER(wxID_Search, GUI::OnSearchEnter)
 wxEND_EVENT_TABLE()
 wxIMPLEMENT_APP_NO_MAIN(MyApp);
 
-MyApp::MyApp() :frame(nullptr)
+MyApp::MyApp() : frame(nullptr)
+{
+}
+
+MyApp::~MyApp()
 {
 }
 
@@ -66,69 +64,70 @@ int MyApp::OnExit()
     return 0;
 }
 
-void GUI::OnAbout(wxCommandEvent& event)
+void GUI::OnAbout(wxCommandEvent &event)
 {
     wxMessageBox("Editor by rajasrijan",
-        "About", wxOK | wxICON_INFORMATION);
+                 "About", wxOK | wxICON_INFORMATION);
 }
 
-void GUI::OnOpenFile(wxCommandEvent & event)
+void GUI::OnOpenFile(wxCommandEvent &event)
 {
     if (m_pTigerFile)
     {
         return;
     }
     string m_pTigerFilePath;
-    wxString gameDir = wxEmptyString;
-    g_mConfigFile.Read("GameDirectory", &gameDir);
+    wxString gameFile = wxEmptyString;
+    if (!g_mConfigFile.Read("GameFile", &gameFile))
+    {
+        gameFile = "bigfile.000.tiger";
+    }
 
-    wxFileDialog m_pTigerFileDIalog(this, wxFileSelectorPromptStr, gameDir, "bigfile.000.tiger", "TIGER File|*.tiger", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    wxFileDialog m_pTigerFileDIalog(this, wxFileSelectorPromptStr, wxEmptyString, gameFile, "TIGER File|*.tiger", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
     if (m_pTigerFileDIalog.ShowModal() != wxID_OK)
     {
         return;
     }
-    g_mConfigFile.Write("GameDirectory", m_pTigerFileDIalog.GetDirectory());
+    m_pTigerFilePath = m_pTigerFileDIalog.GetPath().ToStdString();
+    g_mConfigFile.Write("GameFile", m_pTigerFileDIalog.GetPath());
     g_mConfigFile.Flush();
-    m_pTigerFilePath = m_pTigerFileDIalog.GetPath();
     if (m_pTigerFile)
     {
         delete m_pTigerFile;
     }
     m_pTigerFile = new patch(m_pTigerFilePath);
 
+    m_NavigationTree->Freeze();
+
     wxTreeItemId rootId = m_NavigationTree->AddRoot("ROOT");
 
-    m_NavigationTree->Freeze();
-    std::mutex mtxNodeList;
     const size_t ElementCount = m_pTigerFile->getElementCount();
     for (size_t i = 0; i < ElementCount; i++)
     {
         myTreeItemData *pData = new myTreeItemData(m_pTigerFile->getElement(i));
-        auto itemId = m_NavigationTree->AppendItem(rootId, pData->m_itemElement.getName(), -1, -1, pData);
-        {
-            std::lock_guard<mutex> lock(mtxNodeList);
-            m_vNodeList.push_back(itemId);
-        }
+        const std::string nodeName = pData->m_itemElement.getName();
+        auto itemId = m_NavigationTree->AppendItem(rootId, nodeName, -1, -1, pData);
+        m_vNodeList.push_back(std::make_pair(nodeName, itemId));
     }
     m_itNodeSearchPos = m_vNodeList.begin();
     m_NavigationTree->Thaw();
 }
 
-void GUI::OnTreeSelectionChanged(wxTreeEvent & event)
+void GUI::OnTreeSelectionChanged(wxTreeEvent &event)
 {
     int ret = 0;
-    HRESULT hr = S_OK;
+
     wxTreeItemId selectedItem = event.GetItem();
-    myTreeItemData *pData = (myTreeItemData*)m_NavigationTree->GetItemData(selectedItem);
+    myTreeItemData *pData = (myTreeItemData *)m_NavigationTree->GetItemData(selectedItem);
     if (!pData)
     {
         return;
     }
-    m_itNodeSearchPos = find(m_vNodeList.begin(), m_vNodeList.end(), selectedItem);
+    m_itNodeSearchPos = find_if(m_vNodeList.begin(), m_vNodeList.end(), [selectedItem](const auto &t) { return (t.second == selectedItem); });
     if (!pData->pList)
     {
-        pData->pList = new vector<void*>;
+        pData->pList = new vector<void *>;
         m_pTigerFile->getUHList(pData->m_itemElement, pData->pList);
     }
     if (pData->pList->size() == 0)
@@ -154,7 +153,7 @@ void GUI::OnTreeSelectionChanged(wxTreeEvent & event)
         ret = m_pTigerFile->getDataType(aData.get(), sz, type);
         if (ret || type == CDRM_TYPE_UNKNOWN)
         {
-            /*char thumbLabel[MAX_PATH] = { 0 };
+            /*char thumbLabel[NAME_LENGTH] = { 0 };
             sprintf_s(thumbLabel, "%08X", *(uint32_t*)aData.get());
             m_thumbnailList->Append(new wxImageThumbnailItem("NA.BMP", unknown_header, thumbLabel));
             */
@@ -168,7 +167,7 @@ void GUI::OnTreeSelectionChanged(wxTreeEvent & event)
         }
         else if (type == CDRM_TYPE_MESH)
         {
-            m_thumbnailList->Append(new wxImageThumbnailItem("MESH.BMP", unknown_header));
+            m_thumbnailList->Append(new wxImageThumbnailItem("MESH.bmp", unknown_header));
             continue;
         }
         else
@@ -181,30 +180,43 @@ void GUI::OnTreeSelectionChanged(wxTreeEvent & event)
     m_thumbnailList->Thaw();
 }
 
-void GUI::OnFindNext(wxCommandEvent & event)
+void GUI::OnSearchEnter(wxCommandEvent &event)
 {
-    string sSearchString;
-    string sPathName;
+    string sSearchString = m_txtSearch->GetLineText(0).ToStdString();
+    SearchInTree(sSearchString);
+}
+
+void GUI::OnSearch(wxCommandEvent &event)
+{
+    std::string search_term = event.GetString().ToStdString();
+    SearchInTree(search_term);
+}
+
+void GUI::SearchInTree(const std::string &search_term)
+{
+    std::string sPathName;
     if (m_vNodeList.empty())
     {
         return;
     }
-    sSearchString = m_txtSearch->GetLineText(0);
-    if (sSearchString.empty())
+    if (search_term.empty())
     {
         return;
     }
+    std::string sSearchString(search_term);
     transform(sSearchString.begin(), sSearchString.end(), sSearchString.begin(), ::tolower);
-    m_NavigationTree->Freeze();
     auto itFinder = m_itNodeSearchPos;
     do
     {
-        sPathName = m_NavigationTree->GetItemText(*itFinder);
+        //sPathName = m_NavigationTree->GetItemText(*itFinder);
+        sPathName = itFinder->first;
         transform(sPathName.begin(), sPathName.end(), sPathName.begin(), ::tolower);
         if (strstr(sPathName.c_str(), sSearchString.c_str()))
         {
-            m_NavigationTree->SelectItem(*itFinder, true);
-            m_NavigationTree->ScrollTo(*itFinder);
+            m_NavigationTree->Freeze();
+            m_NavigationTree->SelectItem(itFinder->second, true);
+            m_NavigationTree->ScrollTo(itFinder->second);
+            m_NavigationTree->Thaw();
             m_itNodeSearchPos = itFinder + 1;
             if (m_itNodeSearchPos == m_vNodeList.end())
             {
@@ -218,15 +230,9 @@ void GUI::OnFindNext(wxCommandEvent & event)
             itFinder = m_vNodeList.begin();
         }
     } while (itFinder != m_itNodeSearchPos);
-    m_NavigationTree->Thaw();
 }
 
-void GUI::OnFindPrev(wxCommandEvent & event)
-{
-    wxMessageBox("Not Implimented");
-}
-
-void GUI::OnThumbnailListContextMenu(wxContextMenuEvent & event)
+void GUI::OnThumbnailListContextMenu(wxContextMenuEvent &event)
 {
     event.Skip();
     if (p_PopUp)
@@ -235,7 +241,7 @@ void GUI::OnThumbnailListContextMenu(wxContextMenuEvent & event)
     }
 }
 
-void GUI::OnThumbContextMenuSelected(wxContextMenuEvent & event)
+void GUI::OnThumbContextMenuSelected(wxContextMenuEvent &event)
 {
     POPUP_OPTIONS menuId = (POPUP_OPTIONS)event.GetId();
 
@@ -266,8 +272,8 @@ void GUI::ExportSelection()
     {
         return;
     }
-    string saveFileName = saveDialog.GetPath();
-    wxImageThumbnailItem *item = (wxImageThumbnailItem*)m_thumbnailList->GetSelected();
+    string saveFileName = saveDialog.GetPath().ToStdString();
+    wxImageThumbnailItem *item = (wxImageThumbnailItem *)m_thumbnailList->GetSelected();
     ret = m_pTigerFile->decodeAndSaveToFile(item->getItemData(), saveFileName);
     if (ret)
     {
@@ -288,7 +294,7 @@ void GUI::ImportSelection()
     int ret = 0;
 #ifndef _DEBUG
     ret = wxMessageBox("Importing arbitrary data can break game.\nContinue at your own risk?",
-        "CONTINUE AT YOUR OWN RISK!!", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING);
+                       "CONTINUE AT YOUR OWN RISK!!", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING);
     if (ret != wxYES)
     {
         return;
@@ -299,8 +305,8 @@ void GUI::ImportSelection()
     {
         return;
     }
-    string importFileName = openFile.GetPath();
-    wxImageThumbnailItem *item = (wxImageThumbnailItem*)m_thumbnailList->GetSelected();
+    string importFileName = openFile.GetPath().ToStdString();
+    wxImageThumbnailItem *item = (wxImageThumbnailItem *)m_thumbnailList->GetSelected();
     ret = m_pTigerFile->encodeAndCompress(item->getItemData(), importFileName);
     if (ret)
     {
@@ -314,6 +320,8 @@ void GUI::ImportSelection()
 
 void GUI::ImportSelectionRaw()
 {
+    ssize_t bytesRead = 0;
+    size_t szFile = 0;
     if (m_thumbnailList->GetSelection() == -1)
     {
         return;
@@ -322,7 +330,7 @@ void GUI::ImportSelectionRaw()
     shared_ptr<char> pRawData;
 #ifndef _DEBUG
     ret = wxMessageBox("Importing arbitrary data can break game.\nContinue at your own risk?",
-        "CONTINUE AT YOUR OWN RISK!!", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING);
+                       "CONTINUE AT YOUR OWN RISK!!", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING);
     if (ret != wxYES)
     {
         return;
@@ -333,26 +341,31 @@ void GUI::ImportSelectionRaw()
     {
         return;
     }
-    string importFileName = openFile.GetPath();
-    wxImageThumbnailItem *item = (wxImageThumbnailItem*)m_thumbnailList->GetSelected();
-    //ret = m_pTigerFile->encodeAndCompress(item->getItemData(), importFileName);
-    HANDLE hFile = CreateFileA(importFileName.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
+    string importFileName = openFile.GetPath().ToStdString();
+    wxImageThumbnailItem *item = (wxImageThumbnailItem *)m_thumbnailList->GetSelected();
+    int hFile = open(importFileName.c_str(), O_RDONLY);
+    if (hFile == -1)
     {
-        printf("Unable to open file");
+        printf("Unable to open file. error %d", errno);
         ret = 1;
         goto exit;
     }
+    struct stat st;
+    if (fstat(hFile, &st) != 0)
+    {
+        return;
+    }
+
     //	get file size
-    DWORD szFile = GetFileSize(hFile, nullptr);
+    szFile = st.st_size;
     // allocate sufficient memory.
     pRawData = shared_ptr<char>(new char[szFile]);
-    DWORD bytesRead = 0;
-    ret = (int)ReadFile(hFile, pRawData.get(), (DWORD)szFile, &bytesRead, NULL);
-    if (!ret)
+
+    bytesRead = read(hFile, pRawData.get(), szFile);
+    if (bytesRead < 0)
     {
-        printf("Unable to write file");
-        ret = GetLastError();
+        printf("Unable to write file. error %d", errno);
+        ret = errno;
         goto exit;
     }
     else
@@ -369,6 +382,10 @@ exit:
     {
         wxMessageBox("File imported from [" + importFileName + "]");
     }
+    if (hFile != 0 && hFile != -1)
+    {
+        close(hFile);
+    }
 }
 
 void GUI::ExportSelectionRaw()
@@ -379,8 +396,8 @@ void GUI::ExportSelectionRaw()
     {
         return;
     }
-    string saveFileName = saveDialog.GetPath();
-    wxImageThumbnailItem *item = (wxImageThumbnailItem*)m_thumbnailList->GetSelected();
+    string saveFileName = saveDialog.GetPath().ToStdString();
+    wxImageThumbnailItem *item = (wxImageThumbnailItem *)m_thumbnailList->GetSelected();
     size_t sz = 0;
     shared_ptr<char> aData;
     ret = m_pTigerFile->uncompressCDRM(item->getItemData(), aData, sz);
@@ -400,7 +417,7 @@ void GUI::ExportSelectionRaw()
     wxMessageBox("File exported to [" + saveFileName + "]");
 }
 
-GUI::GUI(wxWindow * parent) : MyFrame(parent), m_pTigerFile(nullptr), p_PopUp(nullptr), g_mConfigFile("TRExplorer", "", "config.ini")
+GUI::GUI(wxWindow *parent) : MyFrame(parent), m_pTigerFile(nullptr), p_PopUp(nullptr), g_mConfigFile("TRExplorer", "", "config.ini")
 {
     p_PopUp = new wxMenu();
     p_PopUp->Append(ID_Export, wxT("Export"));
@@ -420,7 +437,7 @@ GUI::~GUI()
     }
 }
 
-void GUI::OnExit(wxCommandEvent & event)
+void GUI::OnExit(wxCommandEvent &event)
 {
     if (m_pTigerFile)
     {

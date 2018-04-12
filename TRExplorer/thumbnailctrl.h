@@ -22,28 +22,30 @@
  * Includes
  */
 #include <memory>
- /*!
-  * Styles and flags
-  */
+#include <mutex>
+/*!
+ * Styles and flags
+ */
 
-  /* Styles
-   */
+/* Styles
+ */
 
 #define wxTH_MULTIPLE_SELECT    0x0010
 #define wxTH_SINGLE_SELECT      0x0000
 #define wxTH_TEXT_LABEL         0x0020
 #define wxTH_IMAGE_LABEL        0x0040
 #define wxTH_EXTENSION_LABEL    0x0080
+#define wxTH_FILENAME_LABEL     0x0100
 
-   /* Flags
-	*/
+/* Flags
+ */
 
 #define wxTHUMBNAIL_SHIFT_DOWN  0x01
 #define wxTHUMBNAIL_CTRL_DOWN   0x02
 #define wxTHUMBNAIL_ALT_DOWN    0x04
 
-	/* Defaults
-	 */
+/* Defaults
+ */
 
 #define wxTHUMBNAIL_DEFAULT_OVERALL_SIZE wxSize(-1, -1)
 #define wxTHUMBNAIL_DEFAULT_IMAGE_SIZE wxSize(128, 128)
@@ -51,8 +53,8 @@
 #define wxTHUMBNAIL_DEFAULT_MARGIN 3
 #define wxTHUMBNAIL_DEFAULT_UNFOCUSSED_BACKGROUND wxColour(175, 175, 175)
 #define wxTHUMBNAIL_DEFAULT_FOCUSSED_BACKGROUND wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT)
-	 //#define wxTHUMBNAIL_DEFAULT_UNSELECTED_BACKGROUND wxColour(205, 205, 205)
-#define wxTHUMBNAIL_DEFAULT_UNSELECTED_BACKGROUND wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWFRAME)
+//#define wxTHUMBNAIL_DEFAULT_UNSELECTED_BACKGROUND wxColour(205, 205, 205)
+#define wxTHUMBNAIL_DEFAULT_UNSELECTED_BACKGROUND wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)
 #define wxTHUMBNAIL_DEFAULT_TYPE_COLOUR wxColour(0, 0, 200)
 #define wxTHUMBNAIL_DEFAULT_TAG_COLOUR wxColour(0, 0, 255)
 #define wxTHUMBNAIL_DEFAULT_FOCUS_RECT_COLOUR wxColour(100, 80, 80)
@@ -67,7 +69,7 @@ class wxThumbnailCtrl;
  * wxThumbnailItem class declaration
  */
 
- // Drawing styles/states
+// Drawing styles/states
 #define wxTHUMBNAIL_SELECTED    0x01
 #define wxTHUMBNAIL_TAGGED      0x02
 // The control is focussed
@@ -76,30 +78,51 @@ class wxThumbnailCtrl;
 #define wxTHUMBNAIL_IS_FOCUS    0x08
 #define wxTHUMBNAIL_IS_HOVER    0x10
 
-class wxThumbnailItem : public wxObject
+class wxThumbnailItem: public wxObject
 {
-	DECLARE_CLASS(wxThumbnailItem)
+	DECLARE_CLASS (wxThumbnailItem)
 public:
 	// Constructors
 
 	wxThumbnailItem(const wxString& filename = wxEmptyString, const wxString& label = wxEmptyString)
 	{
-		m_filename = filename; m_state = 0; m_label = label.IsEmpty() ? filename : label;
+		m_filename = filename;
+		m_state = 0;
+		//	m_label = label.IsEmpty() ? filename : label;
 	}
 
 	// Accessors
 
 	/// Filename
-	void SetFilename(const wxString& filename) { m_filename = filename; m_cachedBitmap = wxNullBitmap; }
-	const wxString& GetFilename() const { return m_filename; }
+	void SetFilename(const wxString& filename)
+	{
+		m_filename = filename;
+		m_cachedBitmap = wxNullBitmap;
+	}
+	const wxString& GetFilename() const
+	{
+		return m_filename;
+	}
 
 	/// Label
-	void SetLabel(const wxString& label) { m_label = label; }
-	const wxString& GetLabel() const { return m_label; }
+	void SetLabel(const wxString& label)
+	{
+		m_label = label;
+	}
+	const wxString& GetLabel() const
+	{
+		return m_label;
+	}
 
 	/// State storage while sorting
-	void SetState(int state) { m_state = state; }
-	int GetState() const { return m_state; }
+	void SetState(int state)
+	{
+		m_state = state;
+	}
+	int GetState() const
+	{
+		return m_state;
+	}
 
 	// Overrideables
 	// Refresh the item
@@ -112,39 +135,49 @@ public:
 	virtual bool DrawBackground(wxDC& dc, wxThumbnailCtrl* ctrl, const wxRect& rect, const wxRect& imageRect, int style, int index);
 
 	/// Load the thumbnail
-	virtual bool Load(wxThumbnailCtrl* WXUNUSED(ctrl), bool WXUNUSED(forceLoad)) { return false; }
+	virtual bool Load(wxThumbnailCtrl* WXUNUSED(ctrl), bool WXUNUSED(forceLoad))
+	{
+		return false;
+	}
 
 protected:
-	wxBitmap    m_cachedBitmap;
-	wxString    m_filename;
-	wxString	m_label;
-	int         m_state; // state storage while sorting
+	wxBitmap m_cachedBitmap;
+	wxString m_filename;
+	wxString m_label;
+	int m_state; // state storage while sorting
 };
 
 /*!
  * wxImageThumbnailItem class declaration
  */
 
-class wxImageThumbnailItem : public wxThumbnailItem
+class wxImageThumbnailItem: public wxThumbnailItem
 {
-	DECLARE_CLASS(wxImageThumbnailItem)
+	DECLARE_CLASS (wxImageThumbnailItem)
 	void* pItemData;
-	unsigned long long ullDataInitFlag;
+	std::once_flag dataInitFlag;
 	std::shared_ptr<char> m_pRawDDSData;
 	size_t m_sDDSSize;
+	wxImage naimage;
 public:
 	// Constructors
 
 	wxImageThumbnailItem(const wxString& filename = wxEmptyString, void* itemData = nullptr, const wxString& label = wxEmptyString) :
-		wxThumbnailItem(filename, label), ullDataInitFlag(0), m_sDDSSize(0), pItemData(itemData)
-	{}
+			wxThumbnailItem(filename, label), m_sDDSSize(0), pItemData(itemData)
+	{
+		naimage.LoadFile("NA.bmp", wxBITMAP_TYPE_ANY);
+	}
 
-	wxImageThumbnailItem(wxImage &image) : ullDataInitFlag(0), m_sDDSSize(0), pItemData(nullptr)
+	wxImageThumbnailItem(wxImage &image) :
+			m_sDDSSize(0), pItemData(nullptr)
 	{
 		m_cachedBitmap = wxBitmap(image);
+		naimage.LoadFile("NA.bmp", wxBITMAP_TYPE_ANY);
 	}
-	wxImageThumbnailItem(std::shared_ptr<char> pRawDDSData, size_t sDDSSize, void* ItemData = nullptr) :m_pRawDDSData(pRawDDSData), ullDataInitFlag(0), m_sDDSSize(sDDSSize), pItemData(ItemData)
+	wxImageThumbnailItem(std::shared_ptr<char> pRawDDSData, size_t sDDSSize, void* ItemData = nullptr) :
+			m_pRawDDSData(pRawDDSData), m_sDDSSize(sDDSSize), pItemData(ItemData)
 	{
+		naimage.LoadFile("NA.bmp", wxBITMAP_TYPE_ANY);
 	}
 	// Overrideables
 
@@ -154,13 +187,14 @@ public:
 	/// Load the thumbnail
 	virtual bool Load(wxThumbnailCtrl* ctrl, bool forceLoad);
 
-	wxBitmap& GetCachedBitmap() { return m_cachedBitmap; }
+	wxBitmap& GetCachedBitmap()
+	{
+		return m_cachedBitmap;
+	}
 
 	//	get the item related data
 	void* getItemData();
 };
-
-
 
 WX_DECLARE_OBJARRAY(wxThumbnailItem, wxThumbnailItemArray);
 
@@ -168,23 +202,22 @@ WX_DECLARE_OBJARRAY(wxThumbnailItem, wxThumbnailItemArray);
  * wxThumbnailCtrl class declaration
  */
 
-class wxThumbnailCtrl : public wxScrolledWindow
+class wxThumbnailCtrl: public wxScrolledWindow
 {
-	DECLARE_CLASS(wxThumbnailCtrl)
-	DECLARE_EVENT_TABLE()
+	DECLARE_CLASS (wxThumbnailCtrl)DECLARE_EVENT_TABLE()
 
 public:
 	// Constructors
 
 	wxThumbnailCtrl();
 	wxThumbnailCtrl(wxWindow* parent, wxWindowID id = -1, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
-		long style = wxTH_TEXT_LABEL | wxTH_IMAGE_LABEL | wxTH_EXTENSION_LABEL | wxBORDER_THEME);
+			long style = wxTH_TEXT_LABEL | wxTH_IMAGE_LABEL | wxTH_EXTENSION_LABEL | wxBORDER_THEME);
 
 	// Operations
 
 	/// Creation
 	bool Create(wxWindow* parent, wxWindowID id = -1, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
-		long style = wxTH_TEXT_LABEL | wxTH_IMAGE_LABEL | wxTH_EXTENSION_LABEL | wxBORDER_THEME);
+			long style = wxTH_TEXT_LABEL | wxTH_IMAGE_LABEL | wxTH_EXTENSION_LABEL | wxBORDER_THEME);
 
 	/// Member initialisation
 	void Init();
@@ -232,13 +265,22 @@ public:
 	// Accessing items
 
 	/// Get the number of items in the control
-	virtual int GetCount() const { return m_items.GetCount(); }
+	virtual int GetCount() const
+	{
+		return m_items.GetCount();
+	}
 
 	/// Get Items
-	const wxThumbnailItemArray& GetItems() const { return m_items; }
+	const wxThumbnailItemArray& GetItems() const
+	{
+		return m_items;
+	}
 
 	/// Is the control empty?
-	bool IsEmpty() const { return GetCount() == 0; }
+	bool IsEmpty() const
+	{
+		return GetCount() == 0;
+	}
 
 	/// Get the nth item
 	wxThumbnailItem* GetItem(int n);
@@ -257,7 +299,10 @@ public:
 	bool GetRowCol(int item, const wxSize& clientSize, int& row, int& col);
 
 	/// Get the focus item, or -1 if there is none
-	int GetFocusItem() const { return m_focusItem; }
+	int GetFocusItem() const
+	{
+		return m_focusItem;
+	}
 
 	/// Set the focus item
 	void SetFocusItem(int item);
@@ -288,10 +333,16 @@ public:
 	wxThumbnailItem* GetSelected();
 
 	/// Get indexes of all selections, if multi-select
-	const wxArrayInt& GetSelections() const { return m_selections; }
+	const wxArrayInt& GetSelections() const
+	{
+		return m_selections;
+	}
 
 	/// Get indexes of all tags
-	const wxArrayInt& GetTags() const { return m_tags; }
+	const wxArrayInt& GetTags() const
+	{
+		return m_tags;
+	}
 
 	/// Returns true if the item is selected
 	bool IsSelected(int n) const;
@@ -306,7 +357,10 @@ public:
 	void ClearTags();
 
 	/// Get mouse hover item
-	int GetMouseHoverItem() const { return m_hoverItem; }
+	int GetMouseHoverItem() const
+	{
+		return m_hoverItem;
+	}
 
 	/// Find the item under the given point
 	bool HitTest(const wxPoint& pt, int& n);
@@ -316,56 +370,123 @@ public:
 	/// The overall size of the thumbnail, including decorations.
 	/// DON'T USE THIS from the application, since it will
 	/// normally be calculated by SetThumbnailImageSize.
-	void SetThumbnailOverallSize(const wxSize& sz) { m_thumbnailOverallSize = sz; }
-	const wxSize& GetThumbnailOverallSize() const { return m_thumbnailOverallSize; }
+	void SetThumbnailOverallSize(const wxSize& sz)
+	{
+		m_thumbnailOverallSize = sz;
+	}
+	const wxSize& GetThumbnailOverallSize() const
+	{
+		return m_thumbnailOverallSize;
+	}
 
 	/// The size of the image part
 	void SetThumbnailImageSize(const wxSize& sz);
-	const wxSize& GetThumbnailImageSize() const { return m_thumbnailImageSize; }
+	const wxSize& GetThumbnailImageSize() const
+	{
+		return m_thumbnailImageSize;
+	}
 
 	/// The inter-item spacing
-	void SetSpacing(int spacing) { m_spacing = spacing; }
-	int GetSpacing() const { return m_spacing; }
+	void SetSpacing(int spacing)
+	{
+		m_spacing = spacing;
+	}
+	int GetSpacing() const
+	{
+		return m_spacing;
+	}
 
 	/// The margin between elements within the thumbnail
-	void SetThumbnailMargin(int margin) { m_thumbnailMargin = margin; }
-	int GetThumbnailMargin() const { return m_thumbnailMargin; }
+	void SetThumbnailMargin(int margin)
+	{
+		m_thumbnailMargin = margin;
+	}
+	int GetThumbnailMargin() const
+	{
+		return m_thumbnailMargin;
+	}
 
 	/// The height required for text in the thumbnail
-	void SetThumbnailTextHeight(int h) { m_thumbnailTextHeight = h; }
-	int GetThumbnailTextHeight() const { return m_thumbnailTextHeight; }
+	void SetThumbnailTextHeight(int h)
+	{
+		m_thumbnailTextHeight = h;
+	}
+	int GetThumbnailTextHeight() const
+	{
+		return m_thumbnailTextHeight;
+	}
 
 	/// Get tag bitmap
-	const wxBitmap& GetTagBitmap() const { return m_tagBitmap; }
+	const wxBitmap& GetTagBitmap() const
+	{
+		return m_tagBitmap;
+	}
 
 	/// The focussed and unfocussed background colour for a
 	/// selected thumbnail
 	void SetSelectedThumbnailBackgroundColour(const wxColour& focussedColour, const wxColour& unfocussedColour)
 	{
-		m_focussedThumbnailBackgroundColour = focussedColour; m_unfocussedThumbnailBackgroundColour = unfocussedColour;
+		m_focussedThumbnailBackgroundColour = focussedColour;
+		m_unfocussedThumbnailBackgroundColour = unfocussedColour;
 	}
-	const wxColour& GetSelectedThumbnailFocussedBackgroundColour() const { return m_focussedThumbnailBackgroundColour; }
-	const wxColour& GetSelectedThumbnailUnfocussedBackgroundColour() const { return m_unfocussedThumbnailBackgroundColour; }
+	const wxColour& GetSelectedThumbnailFocussedBackgroundColour() const
+	{
+		return m_focussedThumbnailBackgroundColour;
+	}
+	const wxColour& GetSelectedThumbnailUnfocussedBackgroundColour() const
+	{
+		return m_unfocussedThumbnailBackgroundColour;
+	}
 
 	/// The unselected background colour for a thumbnail
-	void SetUnselectedThumbnailBackgroundColour(const wxColour& colour) { m_unselectedThumbnailBackgroundColour = colour; }
-	const wxColour& GetUnselectedThumbnailBackgroundColour() const { return m_unselectedThumbnailBackgroundColour; }
+	void SetUnselectedThumbnailBackgroundColour(const wxColour& colour)
+	{
+		m_unselectedThumbnailBackgroundColour = colour;
+	}
+	const wxColour& GetUnselectedThumbnailBackgroundColour() const
+	{
+		return m_unselectedThumbnailBackgroundColour;
+	}
 
 	/// The colour for the type text (top left of thumbnail)
-	void SetTypeColour(const wxColour& colour) { m_typeColour = colour; }
-	const wxColour& GetTypeColour() const { return m_typeColour; }
+	void SetTypeColour(const wxColour& colour)
+	{
+		m_typeColour = colour;
+	}
+	const wxColour& GetTypeColour() const
+	{
+		return m_typeColour;
+	}
 
 	/// The colour for the tag outline
-	void SetTagColour(const wxColour& colour) { m_tagColour = colour; }
-	const wxColour& GetTagColour() const { return m_tagColour; }
+	void SetTagColour(const wxColour& colour)
+	{
+		m_tagColour = colour;
+	}
+	const wxColour& GetTagColour() const
+	{
+		return m_tagColour;
+	}
 
 	/// The focus rectangle pen colour
-	void SetFocusRectColour(const wxColour& colour) { m_focusRectColour = colour; }
-	const wxColour& GetFocusRectColour() const { return m_focusRectColour; }
+	void SetFocusRectColour(const wxColour& colour)
+	{
+		m_focusRectColour = colour;
+	}
+	const wxColour& GetFocusRectColour() const
+	{
+		return m_focusRectColour;
+	}
 
 	/// The thumbnail outlines show or not
-	void ShowOutlines(bool flag = true) { m_showOutlines = flag; }
-	bool IsOutlinesShown() const { return m_showOutlines; }
+	void ShowOutlines(bool flag = true)
+	{
+		m_showOutlines = flag;
+	}
+	bool IsOutlinesShown() const
+	{
+		return m_showOutlines;
+	}
 
 	// Command handlers
 
@@ -453,111 +574,138 @@ protected:
 private:
 
 	/// The items
-	wxThumbnailItemArray    m_items;
+	wxThumbnailItemArray m_items;
 
 	/// The selections
-	wxArrayInt              m_selections;
+	wxArrayInt m_selections;
 
 	/// The tags
-	wxArrayInt              m_tags;
+	wxArrayInt m_tags;
 
 	/// Outer size of the thumbnail item
-	wxSize                  m_thumbnailOverallSize;
+	wxSize m_thumbnailOverallSize;
 
 	/// Image size of the thumbnail item
-	wxSize                  m_thumbnailImageSize;
+	wxSize m_thumbnailImageSize;
 
 	/// The inter-item spacing
-	int                     m_spacing;
+	int m_spacing;
 
 	/// The margin between the image/text and the edge of the thumbnail
-	int                     m_thumbnailMargin;
+	int m_thumbnailMargin;
 
 	/// The height of thumbnail text in the current font
-	int                     m_thumbnailTextHeight;
+	int m_thumbnailTextHeight;
 
 	/// Allows nested Freeze/Thaw
-	int                     m_freezeCount;
+	int m_freezeCount;
 
 	/// First selection in a range
-	int                     m_firstSelection;
+	int m_firstSelection;
 
 	/// Last selection
-	int                     m_lastSelection;
+	int m_lastSelection;
 
 	/// Focus item
-	int                     m_focusItem;
+	int m_focusItem;
 
 	/// Tag marker bitmap
-	wxBitmap                m_tagBitmap;
+	wxBitmap m_tagBitmap;
 
 	/// Outlines flag
-	bool                    m_showOutlines;
+	bool m_showOutlines;
 
 	/// Mouse hover item
-	int                     m_hoverItem = wxNOT_FOUND;
+	int m_hoverItem = wxNOT_FOUND;
 
 	/// Current control, used in sorting
 	static wxThumbnailCtrl* sm_currentThumbnailCtrl;
 
 	/// Focussed/unfocussed selected thumbnail background colours
-	wxColour                m_focussedThumbnailBackgroundColour;
-	wxColour                m_unfocussedThumbnailBackgroundColour;
-	wxColour                m_unselectedThumbnailBackgroundColour;
-	wxColour                m_focusRectColour;
+	wxColour m_focussedThumbnailBackgroundColour;
+	wxColour m_unfocussedThumbnailBackgroundColour;
+	wxColour m_unselectedThumbnailBackgroundColour;
+	wxColour m_focusRectColour;
 
 	/// Type text colour
-	wxColour                m_typeColour;
+	wxColour m_typeColour;
 
 	/// Tag colour
-	wxColour                m_tagColour;
+	wxColour m_tagColour;
 
 	/// Buffer bitmap
-	wxBitmap                m_bufferBitmap;
+	wxBitmap m_bufferBitmap;
 
 	/// Drag start position
-	wxPoint                 m_dragStartPosition = wxDefaultPosition;
+	wxPoint m_dragStartPosition = wxDefaultPosition;
 };
 
 /*!
  * wxThumbnailEvent - the event class for wxThumbnailCtrl notifications
  */
 
-class wxThumbnailEvent : public wxNotifyEvent
+class wxThumbnailEvent: public wxNotifyEvent
 {
 public:
-	wxThumbnailEvent(wxEventType commandType = wxEVT_NULL, int winid = 0)
-		: wxNotifyEvent(commandType, winid),
-		m_itemIndex(-1), m_flags(0)
-	{ }
+	wxThumbnailEvent(wxEventType commandType = wxEVT_NULL, int winid = 0) :
+			wxNotifyEvent(commandType, winid), m_itemIndex(-1), m_flags(0)
+	{
+	}
 
-	wxThumbnailEvent(const wxThumbnailEvent& event)
-		: wxNotifyEvent(event),
-		m_itemIndex(event.m_itemIndex), m_flags(event.m_flags)
-	{ }
+	wxThumbnailEvent(const wxThumbnailEvent& event) :
+			wxNotifyEvent(event), m_itemIndex(event.m_itemIndex), m_flags(event.m_flags)
+	{
+	}
 
-	int GetIndex() const { return m_itemIndex; }
-	void SetIndex(int n) { m_itemIndex = n; }
+	int GetIndex() const
+	{
+		return m_itemIndex;
+	}
+	void SetIndex(int n)
+	{
+		m_itemIndex = n;
+	}
 
-	const wxArrayInt& GetItemsIndex() const { return m_itemsIndex; }
-	void SetItemsIndex(const wxArrayInt& itemsIndex) { m_itemsIndex = itemsIndex; }
+	const wxArrayInt& GetItemsIndex() const
+	{
+		return m_itemsIndex;
+	}
+	void SetItemsIndex(const wxArrayInt& itemsIndex)
+	{
+		m_itemsIndex = itemsIndex;
+	}
 
-	int GetFlags() const { return m_flags; }
-	void SetFlags(int flags) { m_flags = flags; }
+	int GetFlags() const
+	{
+		return m_flags;
+	}
+	void SetFlags(int flags)
+	{
+		m_flags = flags;
+	}
 
-	const wxPoint& GetPosition() const { return m_position; }
-	void SetPosition(const wxPoint& position) { m_position = position; }
+	const wxPoint& GetPosition() const
+	{
+		return m_position;
+	}
+	void SetPosition(const wxPoint& position)
+	{
+		m_position = position;
+	}
 
-	virtual wxEvent *Clone() const { return new wxThumbnailEvent(*this); }
+	virtual wxEvent *Clone() const
+	{
+		return new wxThumbnailEvent(*this);
+	}
 
 protected:
-	int           m_itemIndex;
-	int           m_flags;
-	wxPoint       m_position;
-	wxArrayInt    m_itemsIndex;
+	int m_itemIndex;
+	int m_flags;
+	wxPoint m_position;
+	wxArrayInt m_itemsIndex;
 
 private:
-	DECLARE_DYNAMIC_CLASS_NO_ASSIGN(wxThumbnailEvent)
+	DECLARE_DYNAMIC_CLASS_NO_ASSIGN (wxThumbnailEvent)
 };
 
 /*!

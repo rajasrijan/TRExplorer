@@ -1,26 +1,26 @@
 /*
-MIT License
+ MIT License
 
-Copyright (c) 2017 Srijan Kumar Sharma
+ Copyright (c) 2017 Srijan Kumar Sharma
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
 #include "cdrm.h"
 #include <fstream>
 #include <iostream>
@@ -56,8 +56,8 @@ int CDRM_Header::getData(char* dstPtr, size_t size)
 	{
 		return 1;
 	}
-	CDRM_DataChunks* chunks = (CDRM_DataChunks*)&this[1];
-	char* dataPtr = (char*)&this[1] + ((((sizeof(CDRM_DataChunks)*count) + 15) / 16) * 16);
+	CDRM_DataChunks* chunks = (CDRM_DataChunks*) &this[1];
+	char* dataPtr = (char*) &this[1] + ((((sizeof(CDRM_DataChunks) * count) + 15) / 16) * 16);
 	for (size_t i = 0; i < count; i++)
 	{
 		switch (chunks[i].blockType)
@@ -68,15 +68,15 @@ int CDRM_Header::getData(char* dstPtr, size_t size)
 			dataPtr += ALIGN_TO(chunks[i].uncompressedSize, 16);
 			dstPtr += chunks[i].uncompressedSize;
 		}
-		break;
+			break;
 		case 2:	//zlib
 		{
 			uLongf bytesWritten = chunks[i].uncompressedSize;
-			if ((errorCode = uncompress((Bytef*)dstPtr, &bytesWritten, (Bytef*)dataPtr, chunks[i].compressedSize)) != Z_OK)
+			if ((errorCode = uncompress((Bytef*) dstPtr, &bytesWritten, (Bytef*) dataPtr, chunks[i].compressedSize)) != Z_OK)
 			{
 				cout << "\nError: Uncompress failure. Error code:" << errorCode;
 				fstream dump("compressed_data_dump_" + to_string(chunks[i].compressedSize) + "_" + to_string(chunks[i].uncompressedSize),
-					ios_base::binary | ios_base::out);
+						ios_base::binary | ios_base::out);
 				dump.write(dataPtr, chunks[i].compressedSize);
 				dump.close();
 				exit(1);
@@ -84,7 +84,7 @@ int CDRM_Header::getData(char* dstPtr, size_t size)
 			dataPtr += ALIGN_TO(chunks[i].compressedSize, 16);
 			dstPtr += chunks[i].uncompressedSize;
 		}
-		break;
+			break;
 		default:
 			cout << "\nError: Unknown block type.";
 			exit(1);
@@ -98,14 +98,14 @@ int CDRM_Header::setData(const char * srcPtr, size_t size, size_t& totalSize, si
 	int errorCode = 0;
 	totalSize = 0;
 	size_t requiredSize = 0;
-	CDRM_DataChunks* chunks = (CDRM_DataChunks*)&this[1];
+	CDRM_DataChunks* chunks = (CDRM_DataChunks*) &this[1];
 	int blockType = chunks[0].blockType;
 	//	save for safe calculations
 	vector<CDRM_DataChunks> tmpChunk;
 	vector<shared_ptr<char>> dataChunk;
 
 	//	pack stuff
-	for (size_t bytesProcessed = 0; bytesProcessed < size; bytesProcessed += CDRM_MAX_BLOCK_SIZE)
+	for (long long unsigned int bytesProcessed = 0; bytesProcessed < size; bytesProcessed += CDRM_MAX_BLOCK_SIZE)
 	{
 		CDRM_DataChunks chunkDescriptor;
 		chunkDescriptor.blockType = blockType;
@@ -119,7 +119,7 @@ int CDRM_Header::setData(const char * srcPtr, size_t size, size_t& totalSize, si
 		{
 			char *dstData = new char[chunkDescriptor.uncompressedSize];
 			uLong bytesWritten = chunkDescriptor.uncompressedSize;
-			if ((errorCode = compress2((Bytef*)dstData, &bytesWritten, (Bytef*)&srcPtr[bytesProcessed], chunkDescriptor.uncompressedSize, 9)) != Z_OK)
+			if ((errorCode = compress2((Bytef*) dstData, &bytesWritten, (Bytef*) &srcPtr[bytesProcessed], chunkDescriptor.uncompressedSize, 9)) != Z_OK)
 			{
 				cout << "\nError: Compress failure. Error code:" << errorCode;
 				return 1;
@@ -137,26 +137,26 @@ int CDRM_Header::setData(const char * srcPtr, size_t size, size_t& totalSize, si
 		return 1;
 	}
 	//	set the new chunk count
-	count = (uint32_t)tmpChunk.size();
+	count = (uint32_t) tmpChunk.size();
 	//	writeout chunk headers
 	memcpy(chunks, tmpChunk.data(), count * sizeof(CDRM_DataChunks));
 	//	writeout packed data
-	char* packedDataPtr = (char*)chunks + (count * sizeof(CDRM_DataChunks));
+	char* packedDataPtr = (char*) chunks + (count * sizeof(CDRM_DataChunks));
 	for (size_t i = 0; i < dataChunk.size(); i++)
 	{
 		//	align data
-		packedDataPtr = (char*)ALIGN_TO((uint64_t)packedDataPtr, 16);
+		packedDataPtr = (char*) ALIGN_TO((uint64_t )packedDataPtr, 16);
 		memcpy(packedDataPtr, dataChunk[i].get(), tmpChunk[i].compressedSize);
 		packedDataPtr += tmpChunk[i].compressedSize;
 	}
-	totalSize = (uint64_t)packedDataPtr - (uint64_t)chunks;
+	totalSize = (uint64_t) packedDataPtr - (uint64_t) chunks;
 	return 0;
 }
 
 size_t CDRM_Header::getDataSize()
 {
 	size_t total_size = 0;
-	CDRM_DataChunks* chunks = (CDRM_DataChunks*)&this[1];
+	CDRM_DataChunks* chunks = (CDRM_DataChunks*) &this[1];
 	for (size_t i = 0; i < count; i++)
 	{
 		total_size += chunks[i].uncompressedSize;
@@ -167,7 +167,7 @@ size_t CDRM_Header::getDataSize()
 size_t CDRM_Header::getCompressedSize()
 {
 	size_t total_size = 0;
-	CDRM_DataChunks* chunks = (CDRM_DataChunks*)&this[1];
+	CDRM_DataChunks* chunks = (CDRM_DataChunks*) &this[1];
 	for (size_t i = 0; i < count; i++)
 	{
 		total_size += chunks[i].compressedSize;
@@ -175,7 +175,8 @@ size_t CDRM_Header::getCompressedSize()
 	return total_size;
 }
 
-CDRM_DataChunks::CDRM_DataChunks() :blockType(0), uncompressedSize(0), compressedSize(0)
+CDRM_DataChunks::CDRM_DataChunks() :
+		blockType(0), uncompressedSize(0), compressedSize(0)
 {
 }
 

@@ -1,26 +1,26 @@
 /*
-MIT License
+ MIT License
 
-Copyright (c) 2017 Srijan Kumar Sharma
+ Copyright (c) 2017 Srijan Kumar Sharma
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
 #include "patch.h"
 #include <algorithm>
 #include <regex>
@@ -28,9 +28,54 @@ SOFTWARE.
 #include "alldef.h"
 #include "zlib.h"
 #include "crc32.h"
-#include <direct.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#if defined(__unix__)
+#include <dlfcn.h>
+#include <sys/mman.h>
+#define INVALID_FILE_DESCRIPTOR (-1)
+#elif defined(_WIN32) || defined(WIN32)
+#define INVALID_FILE_DESCRIPTOR (INVALID_HANDLE_VALUE)
+#include <windows.h>
+#define dlopen(x, y) LoadLibraryA(x)
+#define dlsym(x, y) (void *)GetProcAddress((HMODULE)x, y)
+#define dlclose(x) CloseHandle(x);
+#define dlerror GetLastError
+#endif
 
-vector<pair<string, Plugin>> pluginList;
+#if defined(__GNUC__)
+#define LIBRARY_SUFFIX "lib"
+#elif defined(_WIN32) || defined(WIN32)
+#define LIBRARY_SUFFIX ""
+#endif
+
+#if defined(__unix__)
+#define LIBRARY_EXTENSION ".so"
+#elif defined(_WIN32) || defined(WIN32)
+#define LIBRARY_EXTENSION ".dll"
+#endif
+
+size_t GetFileSize(int fd)
+{
+	struct stat st;
+	if (fstat(fd, &st) != 0)
+	{
+		return 0;
+	}
+	//	get file size
+	return st.st_size;
+}
+
+#ifdef WIN32
+size_t GetFileSize(HANDLE fd)
+{
+	size_t fileSize = 0;
+	((DWORD *)&fileSize)[0] = GetFileSize(fd, &(((DWORD *)&fileSize)[1]));
+	return fileSize;
+}
+#endif
 
 bool isDir(string pathname)
 {
@@ -38,7 +83,7 @@ bool isDir(string pathname)
 
 	if (stat(pathname.c_str(), &info) != 0)
 		return false;
-	else if (info.st_mode & S_IFDIR)  // S_ISDIR() doesn't exist on my windows 
+	else if (info.st_mode & S_IFDIR) // S_ISDIR() doesn't exist on my windows
 		return true;
 	else
 		return false;
@@ -47,7 +92,11 @@ bool isDir(string pathname)
 int makeDirectory(string path, bool recursive = false)
 {
 	if (!recursive && !isDir(path))
-		return _mkdir(path.c_str());
+#ifdef __unix__
+		return mkdir(path.c_str(), 0);
+#else
+		return mkdir(path.c_str());
+#endif
 	else
 	{
 		return 0;
@@ -55,26 +104,10 @@ int makeDirectory(string path, bool recursive = false)
 	return 0;
 }
 
-bool isFileExists(const std::string& file) {
+bool isFileExists(const std::string &file)
+{
 	struct stat buf;
 	return (stat(file.c_str(), &buf) == 0);
-}
-
-bool dir(vector<string> &resultList, string pattern = "")
-{
-	string command = "dir /B \"" + pattern + "\"";
-	FILE* dirStdout = _popen(command.c_str(), "r");
-	char buffer[1024];
-	char* line = nullptr;
-	while ((line = fgets(buffer, sizeof(buffer), dirStdout)) != nullptr)
-	{
-		size_t pathLength = strlen(line);
-		if (pathLength > 0 && line[pathLength - 1] == '\n')
-			line[pathLength - 1] = 0;
-		resultList.push_back(line);
-	}
-	_pclose(dirStdout);
-	return 0;
 }
 
 string pathJoin(string first, string second)
@@ -99,36 +132,51 @@ string pathJoin(string first, string second)
 std::streampos getFileSize(fstream *file)
 {
 	std::streampos pos = file->tellg();
-	file->seekg(0, SEEK_END);
+	file->seekg(0, std::ios_base::end);
 	std::streampos endPos = file->tellg();
-	file->seekg(pos, SEEK_SET);
+	file->seekg(pos, std::ios_base::beg);
 	return endPos;
 }
 
-patch::patch(const string &_path, bool silent) :tigerFilePath(_path), tiger(NULL)
+patch::patch(const string &_path, bool silent) : tigerFilePath(_path), tiger(NULL)
 {
-	HANDLE mainTigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (mainTigerFile == INVALID_HANDLE_VALUE)
+#ifdef __unix__
+	int mainTigerFile = open(tigerFilePath.c_str(), O_RDWR);
+#else
+	HANDLE mainTigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+#endif
+	if (mainTigerFile == INVALID_FILE_DESCRIPTOR)
 	{
-		printf("Not able to open file [%s]. error(%d)", tigerFilePath.c_str(), GetLastError());
+		printf("Not able to open file [%s]. error(%d)", tigerFilePath.c_str(),
+			   errno);
 		exit(1);
 	}
 	fileHandles.push_back(mainTigerFile);
-	HANDLE tigetFileMapping = CreateFileMapping(mainTigerFile, NULL, PAGE_READWRITE, 0, 0, NULL);
-	if (tigetFileMapping == NULL || tigetFileMapping == INVALID_HANDLE_VALUE)
+
+	size_t fileSz = GetFileSize(mainTigerFile);
+	void *tigerFilePtr = nullptr;
+#ifdef __unix__
+	tigerFilePtr = mmap(nullptr, fileSz, PROT_READ | PROT_WRITE,
+						MAP_SHARED, mainTigerFile, 0);
+#else
+	HANDLE mainTigerFileMapping = CreateFileMapping(mainTigerFile, NULL, PAGE_READWRITE, 0, 0, NULL);
+	if (mainTigerFileMapping == INVALID_FILE_DESCRIPTOR)
 	{
-		printf("Not able to create file mapping [%s]. error(%d)", tigerFilePath.c_str(), GetLastError());
+		printf("Failed to create mapping for file [%s]. error(%d)",
+			   tigerFilePath.c_str(), errno);
 		exit(1);
 	}
-	fileHandles.push_back(tigetFileMapping);
-	void* tigerFilePtr = MapViewOfFile(tigetFileMapping, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
+	fileHandles.push_back(mainTigerFileMapping);
+	tigerFilePtr = MapViewOfFile(mainTigerFileMapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+#endif
 	if (tigerFilePtr == nullptr)
 	{
-		printf("Not able to memory map file [%s]. error(%d)", tigerFilePath.c_str(), GetLastError());
+		printf("Not able to memory map file [%s]. error(%d)",
+			   tigerFilePath.c_str(), errno);
 		exit(1);
 	}
-	tigerPtrList.push_back(tigerFilePtr);
-	tiger = new(tigerFilePtr) file_header();
+	tigerPtrList.push_back(pair<void *, size_t>(tigerFilePtr, fileSz));
+	tiger = new (tigerFilePtr) file_header();
 	if (tiger->magic != TIGER_MAGIC)
 	{
 		printf("Invalid tiger file\n");
@@ -138,30 +186,43 @@ patch::patch(const string &_path, bool silent) :tigerFilePath(_path), tiger(NULL
 	string basePath = tigerFilePath.substr(0, tigerFilePath.find(".000.tiger"));
 	for (uint32_t i = 1; i < tiger->getFileCount(); i++)
 	{
-		char fileNo[32] = { 0 };
+		char fileNo[32] = {0};
 		sprintf(fileNo, ".%03d.tiger", i);
 		tigerFilePath = basePath + fileNo;
-		HANDLE tigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (tigerFile == INVALID_HANDLE_VALUE)
+#ifdef __unix__
+		int tigerFile = open(tigerFilePath.c_str(), O_RDWR);
+#else
+		HANDLE tigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+#endif
+		if (tigerFile == INVALID_FILE_DESCRIPTOR)
 		{
-			printf("Not able to open file [%s]. error(%d)", tigerFilePath.c_str(), GetLastError());
+			printf("Not able to open file [%s]. error(%d)",
+				   tigerFilePath.c_str(), errno);
 			exit(1);
 		}
 		fileHandles.push_back(tigerFile);
-		HANDLE tigetFileMapping = CreateFileMapping(tigerFile, NULL, PAGE_READWRITE, 0, 0, NULL);
-		if (tigetFileMapping == INVALID_HANDLE_VALUE || tigetFileMapping == NULL)
+		fileSz = GetFileSize(tigerFile);
+#ifdef __unix__
+		tigerFilePtr = mmap(nullptr, fileSz, PROT_READ | PROT_WRITE,
+							MAP_SHARED, tigerFile, 0);
+#else
+		HANDLE tigerFileMapping = CreateFileMapping(tigerFile, NULL, PAGE_READWRITE, 0, 0, NULL);
+		if (tigerFileMapping == INVALID_FILE_DESCRIPTOR)
 		{
-			printf("Not able to create file mapping [%s]. error(%d)", tigerFilePath.c_str(), GetLastError());
+			printf("Failed to create mapping for file [%s]. error(%d)",
+				   tigerFilePath.c_str(), errno);
 			exit(1);
 		}
-		fileHandles.push_back(tigetFileMapping);
-		void* tigerFilePtr = MapViewOfFile(tigetFileMapping, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
+		fileHandles.push_back(tigerFileMapping);
+		tigerFilePtr = MapViewOfFile(tigerFileMapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+#endif
 		if (tigerFilePtr == nullptr)
 		{
-			printf("Not able to memory map file [%s]. error(%d)", tigerFilePath.c_str(), GetLastError());
+			printf("Not able to memory map file [%s]. error(%d)",
+				   tigerFilePath.c_str(), errno);
 			exit(1);
 		}
-		tigerPtrList.push_back(tigerFilePtr);
+		tigerPtrList.push_back(pair<void *, size_t>(tigerFilePtr, fileSz));
 		tiger->loadPtrToTigerFile(tigerFilePtr);
 	}
 	ifstream filelist;
@@ -175,13 +236,14 @@ patch::patch(const string &_path, bool silent) :tigerFilePath(_path), tiger(NULL
 	}
 	if (filelist.is_open())
 	{
-		char buffer[4096] = { 0 };
+		char buffer[4096] = {0};
 		string basePath = tiger->BasePath;
 		do
 		{
 			filelist >> buffer;
 			string fullFilePath = basePath + buffer;
-			uint32_t crc = crc32_hash(fullFilePath.data(), fullFilePath.length());
+			uint32_t crc = crc32_hash(fullFilePath.data(),
+									  fullFilePath.length());
 			fileListHashMap[crc] = fullFilePath;
 		} while (!filelist.eof());
 		filelist.close();
@@ -191,14 +253,24 @@ patch::patch(const string &_path, bool silent) :tigerFilePath(_path), tiger(NULL
 patch::~patch()
 {
 	//	Destroy in reverse order.
-	for (auto fileMapPtrIt = tigerPtrList.rbegin(); fileMapPtrIt != tigerPtrList.rend(); fileMapPtrIt++)
+	for (auto fileMapPtrIt = tigerPtrList.rbegin();
+		 fileMapPtrIt != tigerPtrList.rend(); fileMapPtrIt++)
 	{
-		UnmapViewOfFile(*fileMapPtrIt);
+#ifdef __unix__
+		munmap(fileMapPtrIt->first, fileMapPtrIt->second);
+#else
+		UnmapViewOfFile(fileMapPtrIt->first);
+#endif
 	}
 	//	Destroy in reverse order.
-	for (auto handleIt = fileHandles.rbegin(); handleIt != fileHandles.rend(); handleIt++)
+	for (auto handleIt = fileHandles.rbegin(); handleIt != fileHandles.rend();
+		 handleIt++)
 	{
+#ifdef __unix__
+		close(*handleIt);
+#else
 		CloseHandle(*handleIt);
+#endif
 	}
 }
 
@@ -214,7 +286,7 @@ int patch::unpackAll(string path)
 
 int patch::unpack(int id, string path, bool silent)
 {
-	return 0;//return process(id, -1, path, false, silent);
+	return 0; //return process(id, -1, path, false, silent);
 }
 
 void patch::pack(int id, string path)
@@ -224,7 +296,7 @@ void patch::pack(int id, string path)
 
 int patch::pack(int id, int cdrmId, const string &path)
 {
-	return 0;//return process(id, cdrmId, path, true);
+	return 0; //return process(id, cdrmId, path, true);
 }
 
 element_t patch::getElement(uint32_t index)
@@ -234,59 +306,73 @@ element_t patch::getElement(uint32_t index)
 	return eleWrapper;
 }
 
-int patch::getUHList(element_t & e, vector<void*> *pList)
+int patch::getUHList(element_t &e, vector<void *> *pList)
 {
 	if (!pList)
 	{
 		return 1;
 	}
-	char* dataPtr = nullptr;
+	char *dataPtr = nullptr;
 	void *elementPtr = e.getElement();
 	if (tiger->version == 0x04)
 	{
-		dataPtr = (char*)((element_v2*)elementPtr)->getDataPtr();
+		dataPtr = (char *)((element_v2 *)elementPtr)->getDataPtr();
 	}
 	else
 	{
-		dataPtr = (char*)((element_v1*)elementPtr)->getDataPtr();
+		dataPtr = (char *)((element_v1 *)elementPtr)->getDataPtr();
 	}
 	//	process CDRM
-	if (((uint32_t*)dataPtr)[0] == 0x16)
+	if (((uint32_t *)dataPtr)[0] == 0x16)
 	{
-		DRM_Header* drmHeader = new(dataPtr) DRM_Header;
-		char *uh2 = (char*)drmHeader->getUnknownHeaders2();
+		DRM_Header *drmHeader = new (dataPtr) DRM_Header;
+		char *uh2 = (char *)drmHeader->getUnknownHeaders2();
 		for (size_t uh2_section = 0;
-			uh2_section < drmHeader->getUnknownHeaders2Count();
-			uh2_section++)
+			 uh2_section < drmHeader->getUnknownHeaders2Count();
+			 uh2_section++)
 		{
 			if (tiger->version == 0x04)
 			{
-				pList->push_back(&((unknown_header2_v2*)uh2)[uh2_section]);
+				pList->push_back(&((unknown_header2_v2 *)uh2)[uh2_section]);
 			}
 			else
 			{
-				pList->push_back(&((unknown_header2_v1*)uh2)[uh2_section]);
+				pList->push_back(&((unknown_header2_v1 *)uh2)[uh2_section]);
 			}
 		}
 	}
 	return 0;
 }
 
-int patch::uncompressCDRM(void * pHdr, shared_ptr<char>& pData, size_t & sz)
+int patch::uncompressCDRM(void *pHdr, shared_ptr<char> &pData, size_t &sz)
 {
 	int ret = 0;
 	if (tiger->version == 0x04)
 	{
-		ret = uncompressCDRM((unknown_header2_v2*)pHdr, pData, sz);
+		ret = uncompressCDRM((unknown_header2_v2 *)pHdr, pData, sz);
 	}
 	else
 	{
-		ret = uncompressCDRM((unknown_header2_v1*)pHdr, pData, sz);
+		ret = uncompressCDRM((unknown_header2_v1 *)pHdr, pData, sz);
 	}
 	return ret;
 }
 
-int patch::uncompressCDRM(unknown_header2_v1 * pHdr, shared_ptr<char>& pData, size_t & sz)
+int patch::uncompressCDRM(unknown_header2_v1 *pHdr, shared_ptr<char> &pData,
+						  size_t &sz)
+{
+	auto pCDRMHdr = pHdr->getCDRMPtr();
+	if (!pCDRMHdr)
+	{
+		return 1;
+	}
+	sz = pCDRMHdr->getDataSize();
+	pData = shared_ptr<char>(new char[sz]);
+	return pCDRMHdr->getData(pData.get(), sz);
+}
+
+int patch::uncompressCDRM(unknown_header2_v2 *pHdr, shared_ptr<char> &pData,
+						  size_t &sz)
 {
 	auto pCDRMHdr = pHdr->getCDRMPtr();
 	sz = pCDRMHdr->getDataSize();
@@ -294,35 +380,29 @@ int patch::uncompressCDRM(unknown_header2_v1 * pHdr, shared_ptr<char>& pData, si
 	return pCDRMHdr->getData(pData.get(), sz);
 }
 
-int patch::uncompressCDRM(unknown_header2_v2 * pHdr, shared_ptr<char>& pData, size_t & sz)
-{
-	auto pCDRMHdr = pHdr->getCDRMPtr();
-	sz = pCDRMHdr->getDataSize();
-	pData = shared_ptr<char>(new char[sz]);
-	return pCDRMHdr->getData(pData.get(), sz);
-}
-
-int patch::compressCDRM(void * pHdr, const char * pData, const size_t sz)
+int patch::compressCDRM(void *pHdr, const char *pData, const size_t sz)
 {
 	int ret = 0;
 	if (tiger->version == 0x04)
 	{
-		ret = compressCDRM((unknown_header2_v2*)pHdr, pData, sz);
+		ret = compressCDRM((unknown_header2_v2 *)pHdr, pData, sz);
 	}
 	else
 	{
-		ret = compressCDRM((unknown_header2_v1*)pHdr, pData, sz);
+		ret = compressCDRM((unknown_header2_v1 *)pHdr, pData, sz);
 	}
 	return ret;
 }
 
-int patch::compressCDRM(unknown_header2_v1 * pHdr, const char * pData, const size_t sz)
+int patch::compressCDRM(unknown_header2_v1 *pHdr, const char *pData,
+						const size_t sz)
 {
 	int ret = 0;
 	size_t szTotal = 0;
 	CDRM_BlockFooter footer = *(pHdr->getCDRMFooter());
 	CDRM_BlockFooter *oldFooter = pHdr->getCDRMFooter();
-	ret = pHdr->getCDRMPtr()->setData(pData, sz, szTotal, pHdr->size + footer.relative_offset);
+	ret = pHdr->getCDRMPtr()->setData(pData, sz, szTotal,
+									  pHdr->size + footer.relative_offset);
 	if (ret)
 	{
 		printf("Unable to set CDRM data\n");
@@ -336,13 +416,15 @@ int patch::compressCDRM(unknown_header2_v1 * pHdr, const char * pData, const siz
 	return ret;
 }
 
-int patch::compressCDRM(unknown_header2_v2 * pHdr, const char * pData, const size_t sz)
+int patch::compressCDRM(unknown_header2_v2 *pHdr, const char *pData,
+						const size_t sz)
 {
 	int ret = 0;
 	size_t szTotal = 0;
 	CDRM_BlockFooter footer = *(pHdr->getCDRMFooter());
 	CDRM_BlockFooter *oldFooter = pHdr->getCDRMFooter();
-	ret = pHdr->getCDRMPtr()->setData(pData, sz, szTotal, pHdr->size + footer.relative_offset);
+	ret = pHdr->getCDRMPtr()->setData(pData, sz, szTotal,
+									  pHdr->size + footer.relative_offset);
 	if (ret)
 	{
 		printf("Unable to set CDRM data\n");
@@ -356,13 +438,12 @@ int patch::compressCDRM(unknown_header2_v2 * pHdr, const char * pData, const siz
 	return ret;
 }
 
-int patch::getDataType(char * pData, size_t sz, CDRM_TYPES & type)
+int patch::getDataType(char *pData, size_t sz, CDRM_TYPES &type)
 {
 	int ret = 1;
 	for (auto &plugin : pluginList)
 	{
-		if (plugin.second.pPluginInterface
-			&& plugin.second.pPluginInterface->check(pData, sz, type))
+		if (plugin.second.pPluginInterface && plugin.second.pPluginInterface->check(pData, sz, type))
 		{
 			ret = 0;
 			break;
@@ -371,27 +452,30 @@ int patch::getDataType(char * pData, size_t sz, CDRM_TYPES & type)
 	return ret;
 }
 
-int patch::decodeData(char * pData, size_t sz, char ** ppDataOut, size_t &szOut, CDRM_TYPES & type)
+int patch::decodeData(char *pData, size_t sz, char **ppDataOut, size_t &szOut,
+					  CDRM_TYPES &type)
 {
 	int ret = 1;
 	for (auto &plugin : pluginList)
 	{
-		if (plugin.second.pPluginInterface
-			&& plugin.second.pPluginInterface->check(pData, sz, type))
+		if (plugin.second.pPluginInterface && plugin.second.pPluginInterface->check(pData, sz, type))
 		{
-			ret = plugin.second.pPluginInterface->unpack(pData, sz, (void**)ppDataOut, szOut, type);
+			ret = plugin.second.pPluginInterface->unpack(pData, sz,
+														 (void **)ppDataOut, szOut, type);
 			break;
 		}
 	}
 	return ret;
 }
 
-int patch::encodeData(char * pData, size_t sz, char ** ppDataOut, size_t & szOut, CDRM_TYPES & type)
+int patch::encodeData(char *pData, size_t sz, char **ppDataOut,
+					  size_t &szOut, CDRM_TYPES &type)
 {
 	int ret = 1;
 	for (auto &plugin : pluginList)
 	{
-		ret = plugin.second.pPluginInterface->pack(pData, sz, (void**)ppDataOut, szOut, type);
+		ret = plugin.second.pPluginInterface->pack(pData, sz,
+												   (void **)ppDataOut, szOut, type);
 		if (!ret)
 		{
 			break;
@@ -400,28 +484,29 @@ int patch::encodeData(char * pData, size_t sz, char ** ppDataOut, size_t & szOut
 	return ret;
 }
 
-int patch::decodeAndSaveToFile(void * pHdr, string fileName)
+int patch::decodeAndSaveToFile(void *pHdr, string fileName)
 {
 	int ret = 0;
 	if (tiger->version == 0x04)
 	{
-		decodeAndSaveToFile((CDRM_Header*)pHdr, fileName);
+		decodeAndSaveToFile((CDRM_Header *)pHdr, fileName);
 	}
 	else
 	{
-		decodeAndSaveToFile((CDRM_Header*)pHdr, fileName);
+		decodeAndSaveToFile((CDRM_Header *)pHdr, fileName);
 	}
 	return ret;
 }
 
-int patch::decodeAndSaveToFile(CDRM_Header * pHdr, string fileName)
+int patch::decodeAndSaveToFile(CDRM_Header *pHdr, string fileName)
 {
 	int ret = 0;
+	int bytesWritten = 0;
 	size_t sz = 0, szOut = 0;
 	shared_ptr<char> pData;
-	char* pDecodedData = nullptr;
+	char *pDecodedData = nullptr;
 	CDRM_TYPES type = CDRM_TYPE_UNKNOWN;
-	HANDLE hFile = INVALID_HANDLE_VALUE;
+	int hFile = -1;
 	if (!pHdr)
 	{
 		return 1;
@@ -438,19 +523,18 @@ int patch::decodeAndSaveToFile(CDRM_Header * pHdr, string fileName)
 		printf("Unable to decode CDRM");
 		goto exit;
 	}
-	hFile = CreateFileA(fileName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
+	hFile = open(fileName.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0666);
+	if (hFile == -1)
 	{
 		printf("Unable to open file");
 		ret = 1;
 		goto exit;
 	}
-	DWORD bytesWritten = 0;
-	ret = (int)WriteFile(hFile, pDecodedData, (DWORD)szOut, &bytesWritten, NULL);
-	if (!ret)
+	bytesWritten = write(hFile, pDecodedData, (int)szOut);
+	if (bytesWritten < 0)
 	{
 		printf("Unable to write file");
-		ret = GetLastError();
+		ret = errno;
 		goto exit;
 	}
 	else
@@ -463,56 +547,56 @@ exit:
 		delete pDecodedData;
 		pDecodedData = nullptr;
 	}
-	if (hFile != INVALID_HANDLE_VALUE && hFile != NULL)
+	if (hFile != -1)
 	{
-		CloseHandle(hFile);
+		close(hFile);
 	}
 	return ret;
 }
 
-int patch::encodeAndCompress(void * pHdr, string fileName)
+int patch::encodeAndCompress(void *pHdr, string fileName)
 {
 	int ret = 0;
 	if (tiger->version == 0x04)
 	{
-		ret = encodeAndCompress((unknown_header2_v2*)pHdr, fileName);
+		ret = encodeAndCompress((unknown_header2_v2 *)pHdr, fileName);
 	}
 	else
 	{
-		ret = encodeAndCompress((unknown_header2_v1*)pHdr, fileName);
+		ret = encodeAndCompress((unknown_header2_v1 *)pHdr, fileName);
 	}
 	return ret;
 }
 
-int patch::encodeAndCompress(unknown_header2_v1 * pHdr, string fileName)
+int patch::encodeAndCompress(unknown_header2_v1 *pHdr, string fileName)
 {
 	int ret = 0;
 	size_t sz = 0, szFile = 0;
-	char* pData = nullptr;
+	char *pData = nullptr;
+	int bytesRead = 0;
 	shared_ptr<char> pRawData;
 	CDRM_TYPES type = CDRM_TYPE_UNKNOWN;
-	HANDLE hFile = INVALID_HANDLE_VALUE;
+	int hFile = -1;
 	if (!pHdr)
 	{
 		return 1;
 	}
-	hFile = CreateFileA(fileName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
+	hFile = open(fileName.c_str(), O_RDWR);
+	if (hFile == -1)
 	{
 		printf("Unable to open file");
 		ret = 1;
 		goto exit;
 	}
 	//	get file size
-	szFile = GetFileSize(hFile, nullptr);
+	szFile = GetFileSize(hFile);
 	// allocate sufficient memory.
 	pRawData = shared_ptr<char>(new char[szFile]);
-	DWORD bytesRead = 0;
-	ret = (int)ReadFile(hFile, pRawData.get(), (DWORD)szFile, &bytesRead, NULL);
-	if (!ret)
+	bytesRead = (int)read(hFile, pRawData.get(), (int)szFile);
+	if (bytesRead < 0)
 	{
 		printf("Unable to write file");
-		ret = GetLastError();
+		ret = errno;
 		goto exit;
 	}
 	else
@@ -537,42 +621,43 @@ exit:
 		delete pData;
 		pData = nullptr;
 	}
-	if (hFile != INVALID_HANDLE_VALUE || hFile != NULL)
+	if (hFile != -1)
 	{
-		CloseHandle(hFile);
+		close(hFile);
 	}
 	return ret;
 }
 
-int patch::encodeAndCompress(unknown_header2_v2 * pHdr, string fileName)
+int patch::encodeAndCompress(unknown_header2_v2 *pHdr, string fileName)
 {
 	int ret = 0;
 	size_t sz = 0, szFile = 0;
-	char* pData = nullptr;
+	char *pData = nullptr;
+	int bytesRead = 0;
 	shared_ptr<char> pRawData;
 	CDRM_TYPES type = CDRM_TYPE_UNKNOWN;
-	HANDLE hFile = INVALID_HANDLE_VALUE;
+	int hFile = -1;
 	if (!pHdr)
 	{
 		return 1;
 	}
-	hFile = CreateFileA(fileName.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
+	hFile = open(fileName.c_str(), O_RDWR);
+	if (hFile == -1)
 	{
 		printf("Unable to open file");
 		ret = 1;
 		goto exit;
 	}
 	//	get file size
-	szFile = GetFileSize(hFile, nullptr);
+	szFile = GetFileSize(hFile);
 	// allocate sufficient memory.
 	pRawData = shared_ptr<char>(new char[szFile]);
-	DWORD bytesRead = 0;
-	ret = (int)ReadFile(hFile, pRawData.get(), (DWORD)szFile, &bytesRead, NULL);
-	if (!ret)
+
+	bytesRead = (int)read(hFile, pRawData.get(), (int)szFile);
+	if (bytesRead < 0)
 	{
-		printf("Unable to write file");
-		ret = GetLastError();
+		printf("Unable to read file");
+		ret = errno;
 		goto exit;
 	}
 	else
@@ -597,9 +682,9 @@ exit:
 		delete pData;
 		pData = nullptr;
 	}
-	if (hFile != INVALID_HANDLE_VALUE || hFile != NULL)
+	if (hFile != -1)
 	{
-		CloseHandle(hFile);
+		close(hFile);
 	}
 	return ret;
 }
@@ -607,6 +692,8 @@ size_t patch::getElementCount()
 {
 	return tiger->getElementCount();
 }
+
+vector<pair<string, Plugin>> pluginList;
 
 int loadPlugins()
 {
@@ -620,30 +707,37 @@ int loadPlugins()
 	{
 		Plugin p;
 		int errCode = 0;
-		char pluginName[MAX_PATH] = { 0 };
+		char pluginName[NAME_LENGTH] = {0};
+		char plugin[NAME_LENGTH] = {0};
 		//	read plugin name
-		pluginListFile >> pluginName;
-		//	append ".dll"
-		strcat_s(pluginName, ".dll");
+		pluginListFile >> plugin;
+		//	append library extension
+		sprintf(pluginName, "./%s%s%s", LIBRARY_SUFFIX, plugin,
+				LIBRARY_EXTENSION);
+
 		//	try to load library.
-		p.hPluginDll = LoadLibraryA(pluginName);
-		if (p.hPluginDll == NULL || p.hPluginDll == INVALID_HANDLE_VALUE)
+		p.hPluginDll = dlopen(pluginName, RTLD_NOW);
+		if (p.hPluginDll == NULL)
 		{
+			printf("failed to open \"%s\". Reason [%s]\n", pluginName,
+				   dlerror());
 			continue;
 		}
 		//	try to get create and destroy handles.
-		p.pfnCreate = GetProcAddress(p.hPluginDll, "createPluginInterface");
-		p.pfnDestroy = GetProcAddress(p.hPluginDll, "destroyPluginInterface");
+		p.pfnCreate = dlsym(p.hPluginDll, "createPluginInterface");
+		p.pfnDestroy = dlsym(p.hPluginDll, "destroyPluginInterface");
 		if (p.pfnCreate == NULL || p.pfnDestroy == NULL)
 		{
-			FreeLibrary(p.hPluginDll);
+			printf("failed to load interface for \"%s\". Reason [%s]\n",
+				   pluginName, dlerror());
+			dlclose(p.hPluginDll);
 			continue;
 		}
 		//	create interface
 		errCode = ((createPluginInterface)p.pfnCreate)(&p.pPluginInterface);
 		if (errCode)
 		{
-			FreeLibrary(p.hPluginDll);
+			dlclose(p.hPluginDll);
 			continue;
 		}
 		pluginList.push_back(pair<string, Plugin>(pluginName, p));

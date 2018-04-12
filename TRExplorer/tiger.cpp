@@ -32,7 +32,7 @@ int unknown_header2_v1::setSize(size_t newSize)
 	CDRM_Header* nextCdrm = reinterpret_cast<CDRM_Header*>((char*)footer + footer->relative_offset);
 	size = (uint32_t)newSize;
 	CDRM_BlockFooter *newfooter = getCDRMFooter();
-	((uint32_t*)newfooter->magic)[0] = 'TXEN';
+	((uint32_t*)newfooter->magic)[0] = CDRM_FOOTER_MAGIC;
 	newfooter->relative_offset = (uint32_t)((char*)nextCdrm - (char*)newfooter);
 	return 0;
 }

@@ -37,7 +37,7 @@ SOFTWARE.
 #include <wx/image.h>
 #include <wx/icon.h>
 #include <wx/menu.h>
-#include <wx/textctrl.h>
+#include <wx/srchctrl.h>
 #include <wx/button.h>
 #include <wx/sizer.h>
 #include <wx/treectrl.h>
@@ -48,6 +48,7 @@ SOFTWARE.
 #include <wx/dataview.h>
 #include <wx/imaglist.h>
 #include <wx/statbmp.h>
+#include <wx/app.h>
 #include "thumbnailctrl.h"
 
 ///////////////////////////////////////////////////////////////////////////
@@ -58,8 +59,7 @@ enum
 {
 	wxID_NavigationTree,
 	wxID_ThumbnailList,
-	wxID_FindPrevButton,
-	wxID_FindNextButton
+	wxID_Search
 };
 ///////////////////////////////////////////////////////////////////////////////
 /// Class MyFrame
@@ -74,9 +74,7 @@ protected:
 	wxMenu* m_fileMenu;
 	wxMenu* m_helpMenu;
 	wxPanel* m_NavigationPanel;
-	wxTextCtrl* m_txtSearch;
-	wxButton* m_btnPrev;
-	wxButton* m_btnNext;
+	wxSearchCtrl* m_txtSearch;
 	wxTreeCtrl* m_NavigationTree;
 	wxPanel* m_RenderPanel;
 	wxThumbnailCtrl *m_thumbnailList;

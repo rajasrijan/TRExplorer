@@ -71,6 +71,6 @@ public:
 
 static inline void dumpData(string fn, char* pData, size_t sz)
 {
-	fstream f(fn, ios_base::binary | ios_base::out);
+	fstream f(fn.c_str(), ios_base::binary | ios_base::out);
 	f.write(pData, sz);
 }

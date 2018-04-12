@@ -4,13 +4,10 @@
 // Author:      Julian Smart
 // Modified by: Anil Kumar
 // Created:     03/08/04 17:22:46
-// RCS-ID:      
+// RCS-ID:
 // Copyright:   (c) Julian Smart
 // Licence:     wxWidgets Licence
 /////////////////////////////////////////////////////////////////////////////
-#define NOMINMAX
-#include <windows.h>
-#include "DirectXTex.h"
 #if defined(__GNUG__) && !defined(__APPLE__)
 #pragma implementation "thumbnailctrl.h"
 #endif
@@ -28,7 +25,7 @@
 
 #include "thumbnailctrl.h"
 
-#if wxCHECK_VERSION(2,5,5)
+#if wxCHECK_VERSION(2, 5, 5)
 #define USE_BUFFERED_PAINT 1
 #else
 #define USE_BUFFERED_PAINT 0
@@ -40,10 +37,7 @@
 #include "wx/filename.h"
 #include "wx/dcbuffer.h"
 #include <algorithm>
-
-
-#pragma comment(lib,"DirectXTex.lib")
-using namespace DirectX;
+#include "DDSTex.h"
 
 //#include "tick.xpm"
 
@@ -65,20 +59,20 @@ IMPLEMENT_CLASS(wxThumbnailEvent, wxNotifyEvent)
 
 BEGIN_EVENT_TABLE(wxThumbnailCtrl, wxScrolledWindow)
 EVT_PAINT(wxThumbnailCtrl::OnPaint)
-EVT_ERASE_BACKGROUND(wxThumbnailCtrl::OnEraseBackground)
-EVT_MOUSE_EVENTS(wxThumbnailCtrl::OnMouse)
-EVT_MOTION(wxThumbnailCtrl::OnMouseMotion)
-EVT_LEAVE_WINDOW(wxThumbnailCtrl::OnMouseLeave)
-EVT_CHAR(wxThumbnailCtrl::OnChar)
-EVT_SIZE(wxThumbnailCtrl::OnSize)
-EVT_SET_FOCUS(wxThumbnailCtrl::OnSetFocus)
-EVT_KILL_FOCUS(wxThumbnailCtrl::OnKillFocus)
+	EVT_ERASE_BACKGROUND(wxThumbnailCtrl::OnEraseBackground)
+		EVT_MOUSE_EVENTS(wxThumbnailCtrl::OnMouse)
+			EVT_MOTION(wxThumbnailCtrl::OnMouseMotion)
+				EVT_LEAVE_WINDOW(wxThumbnailCtrl::OnMouseLeave)
+					EVT_CHAR(wxThumbnailCtrl::OnChar)
+						EVT_SIZE(wxThumbnailCtrl::OnSize)
+							EVT_SET_FOCUS(wxThumbnailCtrl::OnSetFocus)
+								EVT_KILL_FOCUS(wxThumbnailCtrl::OnKillFocus)
 
-EVT_MENU(wxID_SELECTALL, wxThumbnailCtrl::OnSelectAll)
-EVT_UPDATE_UI(wxID_SELECTALL, wxThumbnailCtrl::OnUpdateSelectAll)
-END_EVENT_TABLE()
+									EVT_MENU(wxID_SELECTALL, wxThumbnailCtrl::OnSelectAll)
+										EVT_UPDATE_UI(wxID_SELECTALL, wxThumbnailCtrl::OnUpdateSelectAll)
+											END_EVENT_TABLE()
 
-wxThumbnailCtrl* wxThumbnailCtrl::sm_currentThumbnailCtrl = NULL;
+												wxThumbnailCtrl *wxThumbnailCtrl::sm_currentThumbnailCtrl = NULL;
 
 /*!
  * wxThumbnailCtrl
@@ -89,20 +83,20 @@ wxThumbnailCtrl::wxThumbnailCtrl()
 	Init();
 }
 
-wxThumbnailCtrl::wxThumbnailCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+wxThumbnailCtrl::wxThumbnailCtrl(wxWindow *parent, wxWindowID id, const wxPoint &pos, const wxSize &size, long style)
 {
 	Init();
 	Create(parent, id, pos, size, style);
 }
 
 /// Creation
-bool wxThumbnailCtrl::Create(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+bool wxThumbnailCtrl::Create(wxWindow *parent, wxWindowID id, const wxPoint &pos, const wxSize &size, long style)
 {
 	if (!wxScrolledWindow::Create(parent, id, pos, size, style
-#if wxCHECK_VERSION(2,5,1)
-		| wxFULL_REPAINT_ON_RESIZE
+#if wxCHECK_VERSION(2, 5, 1)
+															 | wxFULL_REPAINT_ON_RESIZE
 #endif
-	))
+								  ))
 		return false;
 
 	if (!GetFont().Ok())
@@ -114,11 +108,11 @@ bool wxThumbnailCtrl::Create(wxWindow* parent, wxWindowID id, const wxPoint& pos
 	SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 	// m_tagBitmap = wxBitmap(tick_xpm);
 
-#if wxCHECK_VERSION(2,5,1)
+#if wxCHECK_VERSION(2, 5, 1)
 	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
 #endif
 
-	// Tell the sizers to use the given or best size    
+	// Tell the sizers to use the given or best size
 	// SetBestFittingSize(size);
 	SetInitialSize(size);
 
@@ -168,7 +162,7 @@ void wxThumbnailCtrl::Thaw()
 }
 
 /// Append a single item
-int wxThumbnailCtrl::Append(wxThumbnailItem* item)
+int wxThumbnailCtrl::Append(wxThumbnailItem *item)
 {
 	int sz = (int)GetCount();
 	m_items.Add(item);
@@ -187,7 +181,7 @@ int wxThumbnailCtrl::Append(wxThumbnailItem* item)
 }
 
 /// Insert a single item
-int wxThumbnailCtrl::Insert(wxThumbnailItem* item, int pos)
+int wxThumbnailCtrl::Insert(wxThumbnailItem *item, int pos)
 {
 	m_items.Insert(item, pos);
 	m_firstSelection = -1;
@@ -237,7 +231,7 @@ void wxThumbnailCtrl::Clear()
 	}
 }
 
-int wxThumbnailCtrl::Compare(wxThumbnailItem** item1, wxThumbnailItem** item2)
+int wxThumbnailCtrl::Compare(wxThumbnailItem **item1, wxThumbnailItem **item2)
 {
 	wxFAIL_MSG("Override wxThumbnailCtrl::Compare function and provide your implementaion.");
 	return 0;
@@ -251,7 +245,7 @@ void wxThumbnailCtrl::Sort()
 	size_t len = m_items.GetCount();
 	for (i = 0; i < len; i++)
 	{
-		wxThumbnailItem& item = m_items[i];
+		wxThumbnailItem &item = m_items[i];
 		int state = 0;
 		if (IsSelected(i))
 			state |= wxTHUMBNAIL_SELECTED;
@@ -267,8 +261,7 @@ void wxThumbnailCtrl::Sort()
 
 	sm_currentThumbnailCtrl = this;
 
-	m_items.Sort([](wxThumbnailItem** item1, wxThumbnailItem** item2)
-	{
+	m_items.Sort([](wxThumbnailItem **item1, wxThumbnailItem **item2) {
 		return sm_currentThumbnailCtrl->Compare(item1, item2);
 	});
 
@@ -278,7 +271,7 @@ void wxThumbnailCtrl::Sort()
 
 	for (i = 0; i < len; i++)
 	{
-		wxThumbnailItem& item = m_items[i];
+		wxThumbnailItem &item = m_items[i];
 		if (item.GetState() & wxTHUMBNAIL_SELECTED)
 			Select(i);
 		if (item.GetState() & wxTHUMBNAIL_TAGGED)
@@ -334,7 +327,7 @@ void wxThumbnailCtrl::Delete(int n)
 }
 
 /// Get the nth item
-wxThumbnailItem* wxThumbnailCtrl::GetItem(int n)
+wxThumbnailItem *wxThumbnailCtrl::GetItem(int n)
 {
 	wxASSERT(n < GetCount());
 
@@ -347,7 +340,7 @@ wxThumbnailItem* wxThumbnailCtrl::GetItem(int n)
 }
 
 /// Get the overall rect of the given item
-bool wxThumbnailCtrl::GetItemRect(int n, wxRect& rect, bool transform)
+bool wxThumbnailCtrl::GetItemRect(int n, wxRect &rect, bool transform)
 {
 	wxASSERT(n < GetCount());
 	if (n < GetCount())
@@ -365,8 +358,8 @@ bool wxThumbnailCtrl::GetItemRect(int n, wxRect& rect, bool transform)
 			int xppu, yppu;
 			GetScrollPixelsPerUnit(&xppu, &yppu);
 			GetViewStart(&startX, &startY);
-			x = x - startX*xppu;
-			y = y - startY*yppu;
+			x = x - startX * xppu;
+			y = y - startY * yppu;
 		}
 
 		rect.x = x;
@@ -381,7 +374,7 @@ bool wxThumbnailCtrl::GetItemRect(int n, wxRect& rect, bool transform)
 }
 
 /// Get the image rect of the given item
-bool wxThumbnailCtrl::GetItemRectImage(int n, wxRect& rect, bool transform)
+bool wxThumbnailCtrl::GetItemRectImage(int n, wxRect &rect, bool transform)
 {
 	wxASSERT(n < GetCount());
 
@@ -393,13 +386,14 @@ bool wxThumbnailCtrl::GetItemRectImage(int n, wxRect& rect, bool transform)
 	rect.height = m_thumbnailImageSize.y;
 	rect.x = outerRect.x + (outerRect.width - rect.width) / 2;
 	rect.y = outerRect.y + (outerRect.height - rect.height) / 2;
-	if ((GetWindowStyle() & wxTH_EXTENSION_LABEL) == 0) rect.y -= m_thumbnailTextHeight / 2;
+	if ((GetWindowStyle() & wxTH_EXTENSION_LABEL) == 0)
+		rect.y -= m_thumbnailTextHeight / 2;
 
 	return true;
 }
 
 /// The size of the image part
-void wxThumbnailCtrl::SetThumbnailImageSize(const wxSize& sz)
+void wxThumbnailCtrl::SetThumbnailImageSize(const wxSize &sz)
 {
 	m_thumbnailImageSize = sz;
 	// CalculateOverallThumbnailSize();
@@ -437,7 +431,7 @@ void wxThumbnailCtrl::CalculateOverallThumbnailSize()
 /// Return the row and column given the client
 /// size and a left-to-right, top-to-bottom layout
 /// assumption
-bool wxThumbnailCtrl::GetRowCol(int item, const wxSize& clientSize, int& row, int& col)
+bool wxThumbnailCtrl::GetRowCol(int item, const wxSize &clientSize, int &row, int &col)
 {
 	wxASSERT(item < GetCount());
 	if (item >= GetCount())
@@ -454,7 +448,6 @@ bool wxThumbnailCtrl::GetRowCol(int item, const wxSize& clientSize, int& row, in
 
 	return true;
 }
-
 
 /// Select or deselect an item
 void wxThumbnailCtrl::Select(int n, bool select)
@@ -556,7 +549,7 @@ int wxThumbnailCtrl::GetSelection() const
 		return -1;
 }
 
-wxThumbnailItem * wxThumbnailCtrl::GetSelected()
+wxThumbnailItem *wxThumbnailCtrl::GetSelected()
 {
 	int selectedIdx = GetSelection();
 	if (selectedIdx == -1)
@@ -658,10 +651,10 @@ void wxThumbnailCtrl::ClearTags()
 }
 
 /// Painting
-void wxThumbnailCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
+void wxThumbnailCtrl::OnPaint(wxPaintEvent &WXUNUSED(event))
 {
-	// Set this to 0 to compare it with the
-	// unbuffered implementation
+// Set this to 0 to compare it with the
+// unbuffered implementation
 #if USE_BUFFERED_PAINT
 	wxBufferedPaintDC dc(this, m_bufferBitmap);
 #else
@@ -717,24 +710,24 @@ void wxThumbnailCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
 }
 
 // Empty implementation, to prevent flicker
-void wxThumbnailCtrl::OnEraseBackground(wxEraseEvent& WXUNUSED(event))
+void wxThumbnailCtrl::OnEraseBackground(wxEraseEvent &WXUNUSED(event))
 {
 }
 
-void wxThumbnailCtrl::OnSetFocus(wxFocusEvent& WXUNUSED(event))
+void wxThumbnailCtrl::OnSetFocus(wxFocusEvent &WXUNUSED(event))
 {
 	if (GetCount() > 0)
 		Refresh();
 }
 
-void wxThumbnailCtrl::OnKillFocus(wxFocusEvent& WXUNUSED(event))
+void wxThumbnailCtrl::OnKillFocus(wxFocusEvent &WXUNUSED(event))
 {
 	if (GetCount() > 0)
 		Refresh();
 }
 
 /// Mouse-event
-void wxThumbnailCtrl::OnMouse(wxMouseEvent& event)
+void wxThumbnailCtrl::OnMouse(wxMouseEvent &event)
 {
 	if (event.GetEventType() == wxEVT_MOUSEWHEEL)
 	{
@@ -765,9 +758,7 @@ void wxThumbnailCtrl::OnMouse(wxMouseEvent& event)
 	}
 	else if (event.Dragging() && event.LeftIsDown())
 	{
-		wxThumbnailEvent cmdEvent(
-			wxEVT_COMMAND_THUMBNAIL_DRAG_START,
-			GetId());
+		wxThumbnailEvent cmdEvent(wxEVT_COMMAND_THUMBNAIL_DRAG_START, GetId());
 
 		if (wxDefaultPosition == m_dragStartPosition)
 			m_dragStartPosition = event.GetPosition();
@@ -790,7 +781,7 @@ void wxThumbnailCtrl::OnMouse(wxMouseEvent& event)
 }
 
 /// Left-click-down
-void wxThumbnailCtrl::OnLeftClickDown(wxMouseEvent& event)
+void wxThumbnailCtrl::OnLeftClickDown(wxMouseEvent &event)
 {
 	SetFocus();
 	int n;
@@ -816,9 +807,7 @@ void wxThumbnailCtrl::OnLeftClickDown(wxMouseEvent& event)
 		if (change)
 			DoSelection(n, flags);
 
-		wxThumbnailEvent cmdEvent(
-			wxEVT_COMMAND_THUMBNAIL_LEFT_CLICK,
-			GetId());
+		wxThumbnailEvent cmdEvent(wxEVT_COMMAND_THUMBNAIL_LEFT_CLICK, GetId());
 		cmdEvent.SetEventObject(this);
 		cmdEvent.SetIndex(n);
 		cmdEvent.SetFlags(flags);
@@ -827,7 +816,7 @@ void wxThumbnailCtrl::OnLeftClickDown(wxMouseEvent& event)
 }
 
 /// Left-click-up
-void wxThumbnailCtrl::OnLeftClickUp(wxMouseEvent& event)
+void wxThumbnailCtrl::OnLeftClickUp(wxMouseEvent &event)
 {
 	SetFocus();
 	int n;
@@ -852,7 +841,7 @@ void wxThumbnailCtrl::OnLeftClickUp(wxMouseEvent& event)
 }
 
 /// Right-click-down
-void wxThumbnailCtrl::OnRightClickDown(wxMouseEvent& event)
+void wxThumbnailCtrl::OnRightClickDown(wxMouseEvent &event)
 {
 	SetFocus();
 	int n;
@@ -869,14 +858,12 @@ void wxThumbnailCtrl::OnRightClickDown(wxMouseEvent& event)
 		if (m_focusItem != n)
 			SetFocusItem(n);
 
-		const wxArrayInt& selections = GetSelections();
+		const wxArrayInt &selections = GetSelections();
 		if (std::find(selections.begin(), selections.end(), n) == selections.end())
 		{
 			SelectNone();
 			Select(n);
-			wxThumbnailEvent cmdEvent(
-				wxEVT_COMMAND_THUMBNAIL_ITEM_SELECTED,
-				GetId());
+			wxThumbnailEvent cmdEvent(wxEVT_COMMAND_THUMBNAIL_ITEM_SELECTED, GetId());
 			cmdEvent.SetEventObject(this);
 			cmdEvent.SetIndex(n);
 			cmdEvent.SetFlags(flags);
@@ -892,7 +879,7 @@ void wxThumbnailCtrl::OnRightClickDown(wxMouseEvent& event)
 }
 
 /// Right-click-up
-void wxThumbnailCtrl::OnRightClickUp(wxMouseEvent& event)
+void wxThumbnailCtrl::OnRightClickUp(wxMouseEvent &event)
 {
 	SetFocus();
 
@@ -910,12 +897,10 @@ void wxThumbnailCtrl::OnRightClickUp(wxMouseEvent& event)
 		if (m_focusItem != n)
 			SetFocusItem(n);
 
-		const wxArrayInt& selections = GetSelections();
+		const wxArrayInt &selections = GetSelections();
 		if (std::find(selections.begin(), selections.end(), n) != selections.end())
 		{
-			wxThumbnailEvent cmdEvent(
-				wxEVT_COMMAND_THUMBNAIL_RIGHT_CLICK,
-				GetId());
+			wxThumbnailEvent cmdEvent(wxEVT_COMMAND_THUMBNAIL_RIGHT_CLICK, GetId());
 			cmdEvent.SetEventObject(this);
 			cmdEvent.SetIndex(n);
 			cmdEvent.SetFlags(flags);
@@ -925,9 +910,7 @@ void wxThumbnailCtrl::OnRightClickUp(wxMouseEvent& event)
 	}
 	else
 	{
-		wxThumbnailEvent cmdEvent(
-			wxEVT_COMMAND_THUMBNAIL_VIEW_RIGHT_CLICK,
-			GetId());
+		wxThumbnailEvent cmdEvent(wxEVT_COMMAND_THUMBNAIL_VIEW_RIGHT_CLICK, GetId());
 		cmdEvent.SetEventObject(this);
 		cmdEvent.SetFlags(flags);
 		cmdEvent.SetPosition(event.GetPosition());
@@ -936,7 +919,7 @@ void wxThumbnailCtrl::OnRightClickUp(wxMouseEvent& event)
 }
 
 /// Left-double-click
-void wxThumbnailCtrl::OnLeftDClick(wxMouseEvent& event)
+void wxThumbnailCtrl::OnLeftDClick(wxMouseEvent &event)
 {
 	int n;
 	if (HitTest(event.GetPosition(), n))
@@ -949,9 +932,7 @@ void wxThumbnailCtrl::OnLeftDClick(wxMouseEvent& event)
 		if (event.AltDown())
 			flags |= wxTHUMBNAIL_ALT_DOWN;
 
-		wxThumbnailEvent cmdEvent(
-			wxEVT_COMMAND_THUMBNAIL_LEFT_DCLICK,
-			GetId());
+		wxThumbnailEvent cmdEvent(wxEVT_COMMAND_THUMBNAIL_LEFT_DCLICK, GetId());
 		cmdEvent.SetEventObject(this);
 		cmdEvent.SetIndex(n);
 		cmdEvent.SetFlags(flags);
@@ -960,7 +941,7 @@ void wxThumbnailCtrl::OnLeftDClick(wxMouseEvent& event)
 }
 
 /// Mouse motion
-void wxThumbnailCtrl::OnMouseMotion(wxMouseEvent& event)
+void wxThumbnailCtrl::OnMouseMotion(wxMouseEvent &event)
 {
 	wxRect rect;
 	int n;
@@ -983,7 +964,7 @@ void wxThumbnailCtrl::OnMouseMotion(wxMouseEvent& event)
 }
 
 /// Mouse leave
-void wxThumbnailCtrl::OnMouseLeave(wxMouseEvent& event)
+void wxThumbnailCtrl::OnMouseLeave(wxMouseEvent &event)
 {
 	if (wxNOT_FOUND != m_hoverItem)
 		HideMouseHoverBackground();
@@ -992,7 +973,7 @@ void wxThumbnailCtrl::OnMouseLeave(wxMouseEvent& event)
 }
 
 /// Key press
-void wxThumbnailCtrl::OnChar(wxKeyEvent& event)
+void wxThumbnailCtrl::OnChar(wxKeyEvent &event)
 {
 	int flags = 0;
 	if (event.ControlDown())
@@ -1002,13 +983,7 @@ void wxThumbnailCtrl::OnChar(wxKeyEvent& event)
 	if (event.AltDown())
 		flags |= wxTHUMBNAIL_ALT_DOWN;
 
-	if (event.GetKeyCode() == WXK_LEFT ||
-		event.GetKeyCode() == WXK_RIGHT ||
-		event.GetKeyCode() == WXK_UP ||
-		event.GetKeyCode() == WXK_DOWN ||
-		event.GetKeyCode() == WXK_HOME ||
-		event.GetKeyCode() == WXK_PAGEUP ||
-		event.GetKeyCode() == WXK_PAGEDOWN ||
+	if (event.GetKeyCode() == WXK_LEFT || event.GetKeyCode() == WXK_RIGHT || event.GetKeyCode() == WXK_UP || event.GetKeyCode() == WXK_DOWN || event.GetKeyCode() == WXK_HOME || event.GetKeyCode() == WXK_PAGEUP || event.GetKeyCode() == WXK_PAGEDOWN ||
 		//event.GetKeyCode() == WXK_PRIOR ||
 		//event.GetKeyCode() == WXK_NEXT ||
 		event.GetKeyCode() == WXK_END)
@@ -1017,9 +992,7 @@ void wxThumbnailCtrl::OnChar(wxKeyEvent& event)
 	}
 	else if (event.GetKeyCode() == WXK_RETURN)
 	{
-		wxThumbnailEvent cmdEvent(
-			wxEVT_COMMAND_THUMBNAIL_RETURN,
-			GetId());
+		wxThumbnailEvent cmdEvent(wxEVT_COMMAND_THUMBNAIL_RETURN, GetId());
 		cmdEvent.SetEventObject(this);
 		cmdEvent.SetFlags(flags);
 		GetEventHandler()->ProcessEvent(cmdEvent);
@@ -1230,7 +1203,7 @@ void wxThumbnailCtrl::EnsureVisible(int n)
 /// Forces a reload of this item's thumbnail image
 void wxThumbnailCtrl::Reload(int n)
 {
-	wxThumbnailItem* item = GetItem(n);
+	wxThumbnailItem *item = GetItem(n);
 	if (item)
 	{
 		item->Load(this, true);
@@ -1238,7 +1211,7 @@ void wxThumbnailCtrl::Reload(int n)
 }
 
 /// Sizing
-void wxThumbnailCtrl::OnSize(wxSizeEvent& event)
+void wxThumbnailCtrl::OnSize(wxSizeEvent &event)
 {
 	SetupScrollbars();
 	RecreateBuffer();
@@ -1276,9 +1249,7 @@ void wxThumbnailCtrl::SetupScrollbars()
 
 	// Move to previous scroll position if
 	// possible
-	SetScrollbars(0, pixelsPerUnit,
-		0, unitsY,
-		wxMin(maxPositionX, startX), wxMin(maxPositionY, startY));
+	SetScrollbars(0, pixelsPerUnit, 0, unitsY, wxMin(maxPositionX, startX), wxMin(maxPositionY, startY));
 }
 
 /// Show the tooltip
@@ -1286,7 +1257,7 @@ void wxThumbnailCtrl::ShowTooltip(int n)
 {
 	if (wxNOT_FOUND != n)
 	{
-		wxThumbnailItem* item = GetItem(n);
+		wxThumbnailItem *item = GetItem(n);
 		const wxString tooltip = wxFileNameFromPath(item->GetFilename());
 
 		if (GetToolTipText() != tooltip)
@@ -1295,9 +1266,9 @@ void wxThumbnailCtrl::ShowTooltip(int n)
 }
 
 /// Draws the item. Normally you override function in wxThumbnailItem.
-bool wxThumbnailCtrl::DrawItem(int n, wxDC& dc, const wxRect& rect, int style)
+bool wxThumbnailCtrl::DrawItem(int n, wxDC &dc, const wxRect &rect, int style)
 {
-	wxThumbnailItem* item = GetItem(n);
+	wxThumbnailItem *item = GetItem(n);
 	if (item)
 	{
 		return item->Draw(dc, this, rect, style, n);
@@ -1307,9 +1278,9 @@ bool wxThumbnailCtrl::DrawItem(int n, wxDC& dc, const wxRect& rect, int style)
 }
 
 /// Draws the background for the item, including bevel
-bool wxThumbnailCtrl::DrawItemBackground(int n, wxDC& dc, const wxRect& rect, const wxRect& imageRect, int style)
+bool wxThumbnailCtrl::DrawItemBackground(int n, wxDC &dc, const wxRect &rect, const wxRect &imageRect, int style)
 {
-	wxThumbnailItem* item = GetItem(n);
+	wxThumbnailItem *item = GetItem(n);
 	if (item)
 	{
 		return item->DrawBackground(dc, this, rect, imageRect, style, n);
@@ -1409,8 +1380,7 @@ void wxThumbnailCtrl::DoSelection(int n, int flags)
 	for (i = 0; i < stateChanged.GetCount(); i++)
 	{
 		wxThumbnailEvent event(
-			m_selections.Index(stateChanged[i]) != wxNOT_FOUND ? wxEVT_COMMAND_THUMBNAIL_ITEM_SELECTED : wxEVT_COMMAND_THUMBNAIL_ITEM_DESELECTED,
-			GetId());
+			m_selections.Index(stateChanged[i]) != wxNOT_FOUND ? wxEVT_COMMAND_THUMBNAIL_ITEM_SELECTED : wxEVT_COMMAND_THUMBNAIL_ITEM_DESELECTED, GetId());
 		event.SetEventObject(this);
 		event.SetIndex(stateChanged[i]);
 		GetEventHandler()->ProcessEvent(event);
@@ -1425,7 +1395,7 @@ void wxThumbnailCtrl::DoSelection(int n, int flags)
 }
 
 /// Find the item under the given point
-bool wxThumbnailCtrl::HitTest(const wxPoint& pt, int& n)
+bool wxThumbnailCtrl::HitTest(const wxPoint &pt, int &n)
 {
 	wxSize clientSize = GetClientSize();
 	int startX, startY;
@@ -1455,18 +1425,18 @@ bool wxThumbnailCtrl::HitTest(const wxPoint& pt, int& n)
 	return false;
 }
 
-void wxThumbnailCtrl::OnSelectAll(wxCommandEvent& WXUNUSED(event))
+void wxThumbnailCtrl::OnSelectAll(wxCommandEvent &WXUNUSED(event))
 {
 	SelectAll();
 }
 
-void wxThumbnailCtrl::OnUpdateSelectAll(wxUpdateUIEvent& event)
+void wxThumbnailCtrl::OnUpdateSelectAll(wxUpdateUIEvent &event)
 {
 	event.Enable(GetCount() > 0);
 }
 
 /// Paint the background
-void wxThumbnailCtrl::PaintBackground(wxDC& dc)
+void wxThumbnailCtrl::PaintBackground(wxDC &dc)
 {
 	wxColour backgroundColour = GetBackgroundColour();
 	if (!backgroundColour.Ok())
@@ -1476,8 +1446,10 @@ void wxThumbnailCtrl::PaintBackground(wxDC& dc)
 	dc.SetBrush(wxBrush(backgroundColour));
 	dc.SetPen(*wxTRANSPARENT_PEN);
 	wxRect windowRect(wxPoint(0, 0), GetClientSize());
-	windowRect.x -= 2; windowRect.y -= 2;
-	windowRect.width += 4; windowRect.height += 4;
+	windowRect.x -= 2;
+	windowRect.y -= 2;
+	windowRect.width += 4;
+	windowRect.height += 4;
 
 	// We need to shift the rectangle to take into account
 	// scrolling. Converting device to logical coordinates.
@@ -1486,7 +1458,7 @@ void wxThumbnailCtrl::PaintBackground(wxDC& dc)
 }
 
 /// Recreate buffer bitmap if necessary
-bool wxThumbnailCtrl::RecreateBuffer(const wxSize& size)
+bool wxThumbnailCtrl::RecreateBuffer(const wxSize &size)
 {
 	wxSize sz = size;
 	if (sz == wxDefaultSize)
@@ -1531,8 +1503,8 @@ void wxThumbnailCtrl::HideMouseHoverBackground()
 /*!
  * wxThumbnailItem
  */
- /// Refresh Item
-bool wxThumbnailItem::Refresh(wxThumbnailCtrl* ctrl, int index)
+/// Refresh Item
+bool wxThumbnailItem::Refresh(wxThumbnailCtrl *ctrl, int index)
 {
 	wxRect r;
 	ctrl->GetItemRect(index, r);
@@ -1541,7 +1513,7 @@ bool wxThumbnailItem::Refresh(wxThumbnailCtrl* ctrl, int index)
 }
 
 /// Draw the item
-bool wxThumbnailItem::Draw(wxDC& WXUNUSED(dc), wxThumbnailCtrl* WXUNUSED(ctrl), const wxRect& WXUNUSED(rect), int WXUNUSED(style), int WXUNUSED(index))
+bool wxThumbnailItem::Draw(wxDC &WXUNUSED(dc), wxThumbnailCtrl *WXUNUSED(ctrl), const wxRect &WXUNUSED(rect), int WXUNUSED(style), int WXUNUSED(index))
 {
 	wxFAIL_MSG("Override wxThumbnailCtrl::Draw function and provide your implementaion.");
 	return false;
@@ -1549,7 +1521,7 @@ bool wxThumbnailItem::Draw(wxDC& WXUNUSED(dc), wxThumbnailCtrl* WXUNUSED(ctrl), 
 
 /// Draw the item background. It has the default implementation.
 /// You have to ovveride this function inorder to provide your implementaion.
-bool wxThumbnailItem::DrawBackground(wxDC& dc, wxThumbnailCtrl* ctrl, const wxRect& rect, const wxRect& imageRect, int style, int WXUNUSED(index))
+bool wxThumbnailItem::DrawBackground(wxDC &dc, wxThumbnailCtrl *ctrl, const wxRect &rect, const wxRect &imageRect, int style, int WXUNUSED(index))
 {
 	wxColour mediumGrey = ctrl->GetUnselectedThumbnailBackgroundColour();
 	wxColour unfocussedDarkGrey = ctrl->GetSelectedThumbnailUnfocussedBackgroundColour();
@@ -1639,7 +1611,7 @@ bool wxThumbnailItem::DrawBackground(wxDC& dc, wxThumbnailCtrl* ctrl, const wxRe
 		dc.DrawText(m_label, x, y);
 		dc.DestroyClippingRegion();
 	}
-	if (!filename.IsEmpty())
+	if (!filename.IsEmpty() && (ctrl->GetWindowStyle() & wxTH_FILENAME_LABEL))
 	{
 		wxString file, name, ext;
 		//  wxSplitPath(filename, & file, & name, & ext);
@@ -1677,7 +1649,7 @@ bool wxThumbnailItem::DrawBackground(wxDC& dc, wxThumbnailCtrl* ctrl, const wxRe
 	// Draw tag bitmap
 	if (style & wxTHUMBNAIL_TAGGED)
 	{
-		const wxBitmap& tagBitmap = ctrl->GetTagBitmap();
+		const wxBitmap &tagBitmap = ctrl->GetTagBitmap();
 		if (tagBitmap.Ok())
 		{
 			int x = rect.x + rect.width - tagBitmap.GetWidth() - ctrl->GetThumbnailMargin();
@@ -1716,77 +1688,24 @@ wxSize wxThumbnailCtrl::DoGetBestSize() const
 IMPLEMENT_CLASS(wxImageThumbnailItem, wxThumbnailItem)
 
 /// Draw the item
-bool wxImageThumbnailItem::Draw(wxDC& dc, wxThumbnailCtrl* ctrl, const wxRect& rect, int WXUNUSED(style), int WXUNUSED(index))
+bool wxImageThumbnailItem::Draw(wxDC &dc, wxThumbnailCtrl *ctrl, const wxRect &rect, int WXUNUSED(style), int WXUNUSED(index))
 {
-	if (!InterlockedExchange(&ullDataInitFlag, 1) && m_pRawDDSData)
-	{
-		HRESULT hr;
-		ScratchImage mScratchImage;
-		ScratchImage mUnCompressedScratchImage;
-		TexMetadata metadata;
-		uint8_t* src;
-		hr = LoadFromDDSMemory(m_pRawDDSData.get(), m_sDDSSize, 0, &metadata, mScratchImage);
-		if (FAILED(hr))
-		{
-			return true;
-		}
-		wxSize thumbnailSize = ctrl->GetThumbnailImageSize();
-		const Image* srcImage = mScratchImage.GetImages();
-		size_t bestFitImageindex = 0;
-		bool foundBestFit = false;
-		for (bestFitImageindex = 0; bestFitImageindex < mScratchImage.GetImageCount(); bestFitImageindex++)
-		{
-			if (srcImage->height <= thumbnailSize.GetHeight() && srcImage->width <= thumbnailSize.GetWidth())
+	if (m_pRawDDSData)
+		std::call_once(dataInitFlag, [&] {
+			int ret;
+			uint8_t *src;
+			wxSize thumbnailSize = ctrl->GetThumbnailImageSize();
+			wxImage mThumb = wxImage(thumbnailSize.x, thumbnailSize.y);
+			ret = LoadFromDDSMemory(m_pRawDDSData.get(), m_sDDSSize, thumbnailSize.x, thumbnailSize.y, mThumb.GetData());
+			if (ret)
 			{
-				foundBestFit = true;
-				break;
+				m_cachedBitmap = wxBitmap(naimage.ResampleBicubic(thumbnailSize.x, thumbnailSize.y));
 			}
-			if (bestFitImageindex + 1 != mScratchImage.GetImageCount())
+			else
 			{
-				srcImage++;
+				m_cachedBitmap = wxBitmap(mThumb);
 			}
-		}
-
-		if (srcImage->format != DXGI_FORMAT_R8G8B8A8_UNORM
-			&& srcImage->format != DXGI_FORMAT_B8G8R8A8_UNORM
-			&& srcImage->format != DXGI_FORMAT_B8G8R8X8_UNORM)
-		{
-			metadata.width = srcImage->width;
-			metadata.height = srcImage->height;
-			metadata.mipLevels = 1;
-			hr = Decompress(srcImage, 1, metadata, DXGI_FORMAT_UNKNOWN, mUnCompressedScratchImage);
-			if (FAILED(hr))
-			{
-				return true;
-			}
-			src = mUnCompressedScratchImage.GetPixels();
-		}
-		else
-		{
-			src = mScratchImage.GetPixels();
-		}
-		wxImage mThumb = wxImage(metadata.width, metadata.height);
-		uint8_t* dest = mThumb.GetData();
-
-		for (size_t i = 0; i < (metadata.width*metadata.height); i++)
-		{
-			for (size_t d = 0; d < 3; d++)
-			{
-				dest[(i * 3) + d] = src[(i * 4) + d];
-			}
-		}
-		double scaleX = ((double)thumbnailSize.x) / ((double)mThumb.GetWidth());
-		double scaleY = ((double)thumbnailSize.y) / ((double)mThumb.GetHeight());
-
-		if (scaleX < 1.0 || scaleY < 1.0)
-		{
-			double scale = wxMin(scaleX, scaleY);
-			int newWidth = (int)(scale * mThumb.GetWidth());
-			int newHeight = (int)(scale * mThumb.GetHeight());
-			mThumb.Rescale(newWidth, newHeight);
-		}
-		m_cachedBitmap = wxBitmap(mThumb);
-	}
+		});
 	if (m_cachedBitmap.Ok())
 	{
 		int x = rect.x + (rect.width - m_cachedBitmap.GetWidth()) / 2;
@@ -1804,7 +1723,7 @@ bool wxImageThumbnailItem::Draw(wxDC& dc, wxThumbnailCtrl* ctrl, const wxRect& r
 }
 
 /// Load the thumbnail
-bool wxImageThumbnailItem::Load(wxThumbnailCtrl* ctrl, bool forceLoad)
+bool wxImageThumbnailItem::Load(wxThumbnailCtrl *ctrl, bool forceLoad)
 {
 
 	if (m_cachedBitmap.Ok() && !forceLoad)
@@ -1835,7 +1754,7 @@ bool wxImageThumbnailItem::Load(wxThumbnailCtrl* ctrl, bool forceLoad)
 	return false;
 }
 
-void* wxImageThumbnailItem::getItemData()
+void *wxImageThumbnailItem::getItemData()
 {
 	return pItemData;
 }

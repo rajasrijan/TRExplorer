@@ -21,53 +21,59 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
 #pragma once
-#include <Windows.h>
 #include <stdio.h>
 #include <string>
-#include <strsafe.h>
 #include "tiger.h"
 #include "PluginInterface.h"
 #include "element.h"
+#ifdef WIN32
+#define UNICODE
+#include <windows.h>
+#endif
 
 struct Plugin
 {
-	HMODULE hPluginDll;
-	FARPROC pfnCreate, pfnDestroy;
-	PluginInterface* pPluginInterface;
+    void *hPluginDll;
+    void *pfnCreate, *pfnDestroy;
+    PluginInterface* pPluginInterface;
 };
 extern vector<pair<string, Plugin>> pluginList;
+int loadPlugins();
 
 class patch
 {
-	vector<void*> tigerPtrList;
+    vector<pair<void*,size_t> > tigerPtrList;
+#ifdef __unix__
+	vector<int> fileHandles;
+#else
 	vector<HANDLE> fileHandles;
+#endif
 	file_header *tiger;
-	string tigerFilePath;
+    string tigerFilePath;
 public:
-	patch(const string &_path, bool silent = false);
-	~patch();
-	int unpack(int id, string path = "output", bool silent = true);
-	int unpackAll(string path = "output");
-	void pack(int id, string path = "output");
-	int pack(int id, int cdrmId, const string &path);
-	size_t getElementCount();
-	element_t getElement(uint32_t index);
-	int getUHList(element_t & e, vector<void*> *pList);
-	int uncompressCDRM(void* pHdr, shared_ptr<char>& pData, size_t& sz);
-	int uncompressCDRM(unknown_header2_v1* pHdr, shared_ptr<char>& pData, size_t& sz);
-	int uncompressCDRM(unknown_header2_v2* pHdr, shared_ptr<char>& pData, size_t& sz);
-	int compressCDRM(void * pHdr, const char* pData, const size_t sz);
-	int compressCDRM(unknown_header2_v1 * pHdr, const char* pData, const size_t sz);
-	int compressCDRM(unknown_header2_v2 * pHdr, const char* pData, const size_t sz);
-	int getDataType(char* pData, size_t sz, CDRM_TYPES &type);
-	int decodeData(char* pData, size_t sz, char** ppDataOut, size_t &szOut, CDRM_TYPES &type);
-	int encodeData(char* pData, size_t sz, char** ppDataOut, size_t &szOut, CDRM_TYPES &type);
-	int decodeAndSaveToFile(void* pHdr, string fileName);
-	int decodeAndSaveToFile(CDRM_Header* pHdr, string fileName);
-	int encodeAndCompress(void* pHdr, string fileName);
-	int encodeAndCompress(unknown_header2_v1* pHdr, string fileName);
-	int encodeAndCompress(unknown_header2_v2* pHdr, string fileName);
+    patch(const string &_path, bool silent = false);
+    ~patch();
+    int unpack(int id, string path = "output", bool silent = true);
+    int unpackAll(string path = "output");
+    void pack(int id, string path = "output");
+    int pack(int id, int cdrmId, const string &path);
+    size_t getElementCount();
+    element_t getElement(uint32_t index);
+    int getUHList(element_t & e, vector<void*> *pList);
+    int uncompressCDRM(void* pHdr, shared_ptr<char>& pData, size_t& sz);
+    int uncompressCDRM(unknown_header2_v1* pHdr, shared_ptr<char>& pData, size_t& sz);
+    int uncompressCDRM(unknown_header2_v2* pHdr, shared_ptr<char>& pData, size_t& sz);
+    int compressCDRM(void * pHdr, const char* pData, const size_t sz);
+    int compressCDRM(unknown_header2_v1 * pHdr, const char* pData, const size_t sz);
+    int compressCDRM(unknown_header2_v2 * pHdr, const char* pData, const size_t sz);
+    int getDataType(char* pData, size_t sz, CDRM_TYPES &type);
+    int decodeData(char* pData, size_t sz, char** ppDataOut, size_t &szOut, CDRM_TYPES &type);
+    int encodeData(char* pData, size_t sz, char** ppDataOut, size_t &szOut, CDRM_TYPES &type);
+    int decodeAndSaveToFile(void* pHdr, string fileName);
+    int decodeAndSaveToFile(CDRM_Header* pHdr, string fileName);
+    int encodeAndCompress(void* pHdr, string fileName);
+    int encodeAndCompress(unknown_header2_v1* pHdr, string fileName);
+    int encodeAndCompress(unknown_header2_v2* pHdr, string fileName);
 };
-
-int loadPlugins();

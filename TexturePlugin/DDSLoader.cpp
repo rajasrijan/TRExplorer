@@ -24,7 +24,7 @@ SOFTWARE.
 #include "DDSLoader.h"
 #include <string>
 #include <fstream>
-#include <DirectXTex.h>
+#include <string.h>
 
 DDS::DDS() : data(0), dataSize(0)
 {

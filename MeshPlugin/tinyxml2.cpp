@@ -1423,9 +1423,15 @@ XMLError XMLAttribute::QueryDoubleValue( double* value ) const
 }
 
 
-void XMLAttribute::SetAttribute( const char* v )
+void XMLAttribute::SetAttribute(const std::string& v)
 {
-    _value.SetStr( v );
+    _value.SetStr(v.c_str());
+}
+
+
+void XMLAttribute::SetAttribute(const char* v)
+{
+    _value.SetStr(v);
 }
 
 
@@ -1504,6 +1510,17 @@ const XMLAttribute* XMLElement::FindAttribute( const char* name ) const
     return 0;
 }
 
+const char* XMLElement::Attribute( const char* name, const std::string& value ) const
+{
+    const XMLAttribute* a = FindAttribute( name );
+    if ( !a ) {
+        return 0;
+    }
+    if ( XMLUtil::StringEqual( a->Value(), value.c_str() )) {
+        return a->Value();
+    }
+    return 0;
+}
 
 const char* XMLElement::Attribute( const char* name, const char* value ) const
 {
@@ -1567,6 +1584,10 @@ const char* XMLElement::GetText() const
     return 0;
 }
 
+void	XMLElement::SetText( const std::string& inText )
+{
+    SetText(inText.c_str());
+}
 
 void	XMLElement::SetText( const char* inText )
 {
@@ -2066,6 +2087,12 @@ void XMLDocument::DeepCopy(XMLDocument* target) const
 		target->InsertEndChild(node->DeepClone(target));
 	}
 }
+
+XMLElement* XMLDocument::NewElement( const std::string& name )
+{
+    return NewElement(name.c_str());
+}
+
 
 XMLElement* XMLDocument::NewElement( const char* name )
 {

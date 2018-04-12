@@ -65,18 +65,11 @@ MyFrame::MyFrame(wxWindow* parent, wxWindowID id, const wxString& title, const w
 	wxBoxSizer* bSearchSizer;
 	bSearchSizer = new wxBoxSizer(wxHORIZONTAL);
 
-	m_txtSearch = new wxTextCtrl(m_NavigationPanel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
+	m_txtSearch = new wxSearchCtrl(m_NavigationPanel, wxID_Search, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 	m_txtSearch->SetMaxLength(256);
-	m_txtSearch->SetMinSize(wxSize(150, -1));
+	m_txtSearch->SetMinSize(wxSize(200, -1));
 
 	bSearchSizer->Add(m_txtSearch, 1, 0, 5);
-
-	m_btnPrev = new wxButton(m_NavigationPanel, wxID_FindPrevButton, wxT("<"), wxDefaultPosition, wxSize(20, -1), 0);
-	bSearchSizer->Add(m_btnPrev, 1, 0, 5);
-
-	m_btnNext = new wxButton(m_NavigationPanel, wxID_FindNextButton, wxT(">"), wxDefaultPosition, wxSize(20, -1), 0);
-	bSearchSizer->Add(m_btnNext, 1, 0, 5);
-
 
 	bNavigationSizer->Add(bSearchSizer, 1, 0, 5);
 

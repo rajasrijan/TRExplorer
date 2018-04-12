@@ -39,7 +39,11 @@ SOFTWARE.
 #define ALIGN_TO(address,alignment) (((address+alignment-1)/alignment)*alignment)
 #define TIGER_FILEID_MASK_V1 (0x7FF)
 #define TIGER_FILEID_MASK_V2 (0xF)
+#define NAME_LENGTH		(256)
+
 #define TIGER_MAGIC		(0x53464154)
+//	"NEXT"
+#define CDRM_FOOTER_MAGIC		(0x5458454E)
 
 using namespace std;
 
@@ -71,7 +75,7 @@ public:
 		}
 		else
 		{
-			fprintf(stderr, "Error occured trying to read offset [%#X]. Not implimented\n", offset);
+			fprintf(stderr, "Error occured trying to read offset [%#X]. Reading other files not implimented\n", offset);
 			return nullptr;
 		}
 	}

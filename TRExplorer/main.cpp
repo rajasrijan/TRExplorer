@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include <stdlib.h>  
-#include <crtdbg.h>  
 #include <iostream>
 #include <stdio.h>
 #include <memory>
@@ -33,13 +32,11 @@ SOFTWARE.
 #include "tiger.h"
 #include "patch.h"
 #include "gui.h"
-#include "CrashDump.h"
 
 using namespace std;
 
 int main(int argc, char *argv[])
 {
-	SetupCrashHandler();
 	int ret = 0;
 	system("title rajasrijan's tiger decoder.");
 	ret = loadPlugins();

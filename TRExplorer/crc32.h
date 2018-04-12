@@ -23,4 +23,5 @@ SOFTWARE.
 */
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 uint32_t crc32_hash(const void* buf, size_t siz);

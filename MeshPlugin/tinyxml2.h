@@ -41,6 +41,7 @@ distribution.
 #   include <cstring>
 #endif
 #include <stdint.h>
+#include <string>
 
 /*
    TODO: intern strings instead of allocation.
@@ -1190,9 +1191,11 @@ public:
     XMLError QueryBoolValue( bool* value ) const;
     /// See QueryIntValue
     XMLError QueryDoubleValue( double* value ) const;
-    /// See QueryIntValue
+        /// See QueryIntValue
     XMLError QueryFloatValue( float* value ) const;
 
+    /// Set the attribute to a string value.
+    void SetAttribute(const std::string & v);
     /// Set the attribute to a string value.
     void SetAttribute( const char* value );
     /// Set the attribute to value.
@@ -1276,6 +1279,7 @@ public:
     	}
     	@endverbatim
     */
+    const char* Attribute( const char* name, const std::string& value ) const;
     const char* Attribute( const char* name, const char* value=0 ) const;
 
     /** Given an attribute name, IntAttribute() returns the value
@@ -1402,6 +1406,12 @@ public:
 		return QueryFloatAttribute( name, value );
 	}
 
+    /// Sets the named attribute to value.
+    void SetAttribute(const char* name, const std::string& value) {
+        XMLAttribute* a = FindOrCreateAttribute(name);
+        a->SetAttribute(value);
+    }
+
 	/// Sets the named attribute to value.
     void SetAttribute( const char* name, const char* value )	{
         XMLAttribute* a = FindOrCreateAttribute( name );
@@ -1516,6 +1526,7 @@ public:
     		<foo>Hullaballoo!</foo>
     	@endverbatim
     */
+    void SetText( const std::string& inText );
 	void SetText( const char* inText );
     /// Convenience method for setting text inside an element. See SetText() for important limitations.
     void SetText( int value );
@@ -1747,6 +1758,7 @@ public:
     	this Document. The memory for the Element
     	is managed by the Document.
     */
+    XMLElement* NewElement( const std::string& name );
     XMLElement* NewElement( const char* name );
     /**
     	Create a new Comment associated with
