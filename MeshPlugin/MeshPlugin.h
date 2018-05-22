@@ -148,10 +148,10 @@ struct VertexType
 
 enum ComponentConstant
 {
-    CMP_Offset_Normal = 0x36f5e414,     //  5 Normals + 0x64a86f01 + 0xf1ed11c3
-    CMP_Offset_UnknownMatrix = 0x3e7f6149,    //  3 ?? (16)
-    CMP_Offset_BoneWeight = 0x48e691c0, //  6 BoneWeight
-    CMP_Offset_BoneIndex = 0x5156d8d3,  //  7 BoneIndicies
+    CMP_Offset_Normal = 0x36f5e414,        //  5 Normals + 0x64a86f01 + 0xf1ed11c3
+    CMP_Offset_UnknownMatrix = 0x3e7f6149, //  3 ?? (16)
+    CMP_Offset_BoneWeight = 0x48e691c0,    //  6 BoneWeight
+    CMP_Offset_BoneIndex = 0x5156d8d3,     //  7 BoneIndicies
     CMP_Offset_Unknown1 = 0x64a86f01,
     CMP_Offset_Unknown3 = 0x7e7dd623,
     CMP_Offset_TexCord = 0x8317902a,  //  19 TexCoord

@@ -237,3 +237,6 @@ _Pvt_Extensions
 .fake/
 /TRExplorer/temp_dir
 wxWidgets
+build*/*
+*.mesh
+*.dae

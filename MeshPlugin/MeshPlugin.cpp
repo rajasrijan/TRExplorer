@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2017 Srijan Kumar Sharma
+Copyright (c) 2018 Srijan Kumar Sharma
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,10 @@ SOFTWARE.
 #include <functional>
 #include <array>
 #include <chrono>
+#include <memory>
+#include <float.h>
+#include <assimp/scene.h>
+#include <assimp/Importer.hpp>
 
 #define SCENE_MAGIC (0x6873654D)
 
@@ -144,7 +148,6 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
     visual_scene->SetAttribute("name", "TRScene");
     XMLElement *scene = (XMLElement *)collada->InsertEndChild(xmlScene.NewElement("scene"));
     ((XMLElement *)scene->InsertEndChild(xmlScene.NewElement("instance_visual_scene")))->SetAttribute("url", "#RootScene");
-
     //	parse bones start
     BoneHeader *pBoneHdr = pFileHdr->getBoneHeader();
     if (pSceneHeader->HasBones())
@@ -155,7 +158,7 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
         for (int boneIdx = 0; boneIdx < boneCount; boneIdx++)
         {
             char serialize[256] = {0};
-            sprintf(serialize, "1 0 0 %f 0 1 0 %f 0 0 1 %f 0 0 0 1", pBonePtr[boneIdx].x, pBonePtr[boneIdx].y, pBonePtr[boneIdx].z);
+            sprintf(serialize, "1.00 0.00 0.00 %.*e 0.00 1.00 0.00 %.*e 0.00 0.00 1.00 %.*e 0.00 0.00 0.00 1.00", DECIMAL_DIG, pBonePtr[boneIdx].x, DECIMAL_DIG, pBonePtr[boneIdx].y, DECIMAL_DIG, pBonePtr[boneIdx].z);
             XMLElement *parentNode = nullptr;
             if (pBonePtr[boneIdx].pid == -1)
             {
@@ -192,13 +195,18 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
         XMLElement *node = (XMLElement *)visual_scene->InsertEndChild(xmlScene.NewElement("node"));
         node->SetAttribute("id", ("defaultobject" + to_string(meshIdx)));
         node->SetAttribute("name", ("defaultobject" + to_string(meshIdx)));
+        node->SetAttribute("type", "NODE");
         XMLElement *matrix = (XMLElement *)node->InsertEndChild(xmlScene.NewElement("matrix"));
         matrix->SetText("1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1");
-        XMLElement *instance_geometry = (XMLElement *)node->InsertEndChild(xmlScene.NewElement("instance_geometry"));
-        instance_geometry->SetAttribute("url", ("#Geometry" + to_string(meshIdx)));
-
-        XMLElement *bind_material = (XMLElement *)instance_geometry->InsertEndChild(xmlScene.NewElement("bind_material"));
-        XMLElement *technique_common = (XMLElement *)bind_material->InsertEndChild(xmlScene.NewElement("technique_common"));
+        //  if mesh doesn't have bones than instance_geometry else instance_controller
+        XMLElement *technique_common = nullptr;
+        if (!pSceneHeader->HasBones())
+        {
+            XMLElement *instance_geometry = (XMLElement *)node->InsertEndChild(xmlScene.NewElement("instance_geometry"));
+            instance_geometry->SetAttribute("url", ("#Geometry" + to_string(meshIdx)));
+            XMLElement *bind_material = (XMLElement *)instance_geometry->InsertEndChild(xmlScene.NewElement("bind_material"));
+            technique_common = (XMLElement *)bind_material->InsertEndChild(xmlScene.NewElement("technique_common"));
+        }
 
         XMLElement *mesh = (XMLElement *)geometry->InsertEndChild(xmlScene.NewElement("mesh"));
         XMLElement *vertices = (XMLElement *)mesh->InsertEndChild(xmlScene.NewElement("vertices"));
@@ -210,7 +218,7 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
             int stride;
             char param[5];
         };
-        const std::vector<source> sources = {{"GeomatryPos", "POSITION", 3, {'X', 'Y', 'Z'}}, {"GeomatryNorm", "NORMAL", 3, {'X', 'Y', 'Z'}}, {"GeomatryTex0", "TEXCOORD", 2, {'S', 'T'}}};
+        const std::vector<source> sources = {{"GeomatryPos", "POSITION", 3, {'X', 'Y', 'Z'}}, {"GeomatryNorm", "NORMAL", 3, {'X', 'Y', 'Z'}}};
 
         XMLElement *float_array[sources.size()];
         XMLElement *source_array[sources.size()];
@@ -247,7 +255,14 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
         {
             int32_t *pBoneMap = pSceneHeader->getBoneMap(meshIdx);
             XMLElement *controller = AddController(xmlScene, collada, geometry);
-
+            {
+                XMLElement *instance_controller = (XMLElement *)node->InsertEndChild(xmlScene.NewElement("instance_controller"));
+                instance_controller->SetAttribute("url", "#" + string(controller->Attribute("id")));
+                XMLElement *skeleton = (XMLElement *)instance_controller->InsertEndChild(xmlScene.NewElement("skeleton"));
+                skeleton->SetText("#BoneNode0");
+                XMLElement *bind_material = (XMLElement *)instance_controller->InsertEndChild(xmlScene.NewElement("bind_material"));
+                technique_common = (XMLElement *)bind_material->InsertEndChild(xmlScene.NewElement("technique_common"));
+            }
             Bone *bone = pFileHdr->getBoneListPtr();
             char sourceId[256] = {0};
             //  bone names
@@ -261,7 +276,7 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
             sprintf(sourceId, "%s-bind_poses", controller->Attribute("id"));
             AddSource(xmlScene, controller->FirstChildElement("skin"), sourceId, {{"TRANSFORM", "float4x4"}}, "float_array", pBoneMap, pBoneMap + pMeshHeader->m_uiBoneMapCount,
                       [bone](int bonePid, char *serialize, int strSize, int &stride) {
-                          sprintf(serialize, "1 0 0 %f 0 1 0 %f 0 0 1 %f 0 0 0 1", bone[bonePid].x, bone[bonePid].y, bone[bonePid].z);
+                          sprintf(serialize, "1 0 0 %.*e 0 1 0 %.*e 0 0 1 %.*e 0 0 0 1", DECIMAL_DIG, bone[bonePid].x, DECIMAL_DIG, bone[bonePid].y, DECIMAL_DIG, bone[bonePid].z);
                           stride = 16;
                       });
             //  bone weights
@@ -362,7 +377,7 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
                             break;
                         }
                     }
-                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%f %f %f ", pVertexPtr[0], pVertexPtr[1], pVertexPtr[2]);
+                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%.*e %.*e %.*e ", DECIMAL_DIG, pVertexPtr[0], DECIMAL_DIG, pVertexPtr[1], DECIMAL_DIG, pVertexPtr[2]);
                     strPos += charWritten;
                 }
                 if (vectorString == nullptr)
@@ -375,47 +390,44 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
             break;
             case CMP_Offset_TexCord:
             {
-                auto texture_float_array = source_array[2]->FirstChildElement("float_array");
-                auto accessor = source_array[2]->FirstChildElement("technique_common")->FirstChildElement("accessor");
-                texture_float_array->SetAttribute("count", pMeshHeader->m_iNumVerts * sources[2].stride);
-                accessor->SetAttribute("count", pMeshHeader->m_iNumVerts);
-
-                char *pTexCordDataStart = pComponentData + component->itemValue;
-                for (size_t v = 0; v < pMeshHeader->m_iNumVerts; v++)
+                DynamicStructIterator<int16_t> tex2it((void *)pComponentData, 0, pMeshHeader->m_iNumVerts, component->itemValue, pComponentDataBlob->vertexSize);
+                DynamicStructIterator<int16_t> tex2it_end((void *)pComponentData, pMeshHeader->m_iNumVerts, pMeshHeader->m_iNumVerts, component->itemValue, pComponentDataBlob->vertexSize);
+                XMLElement *source = AddSource(xmlScene, mesh, "GeomatryTex0" + to_string(meshIdx), {{"S", "float"}, {"T", "float"}}, "float_array", tex2it, tex2it_end,
+                                               [](const int16_t &in, char *serialize, int sz, int &stride) {
+                                                   stride = 2;
+                                                   float2 tmp = uvParser(&in);
+                                                   snprintf(serialize, sz, "%.*e %.*e ", DECIMAL_DIG, tmp.x, DECIMAL_DIG, tmp.y);
+                                               });
+                XMLElement *vertices = mesh->FirstChildElement("vertices");
+                if (!vertices)
                 {
-                    int16_t *pTexCordPtr = (int16_t *)(pTexCordDataStart + (pComponentDataBlob->vertexSize * v));
-                    float2 tmp = uvParser(pTexCordPtr);
-                    if (strSz - strPos < 0x30)
-                    {
-                        strSz += strInc;
-                        vectorString = (char *)realloc(vectorString, strSz);
-                        if (vectorString == nullptr)
-                        {
-                            printf("Failed to increase memory\n.");
-                            break;
-                        }
-                    }
-                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%f %f ", tmp.x, tmp.y);
-                    strPos += charWritten;
+                    vertices = (XMLElement *)mesh->InsertEndChild(xmlScene.NewElement("vertices"));
                 }
-                if (vectorString == nullptr)
-                {
-                    printf("Invalid Pointer\n.");
-                    break;
-                }
-                texture_float_array->SetText(vectorString);
+                auto input = (XMLElement *)vertices->InsertEndChild(xmlScene.NewElement("input"));
+                input->SetAttribute("semantic", "TEXCOORD");
+                input->SetAttribute("source", "#" + string(source->Attribute("id")));
+                input->SetAttribute("set", "0");
             }
             break;
             case CMP_Offset_TexCord2:
             {
                 DynamicStructIterator<int16_t> tex2it((void *)pComponentData, 0, pMeshHeader->m_iNumVerts, component->itemValue, pComponentDataBlob->vertexSize);
                 DynamicStructIterator<int16_t> tex2it_end((void *)pComponentData, pMeshHeader->m_iNumVerts, pMeshHeader->m_iNumVerts, component->itemValue, pComponentDataBlob->vertexSize);
-                AddSource(xmlScene, mesh, "GeomatryTex1" + to_string(meshIdx), {{"S", "float"}, {"T", "float"}}, "float_array", tex2it, tex2it_end,
-                          [](const int16_t &in, char *serialize, int sz, int &stride) {
-                              stride = 2;
-                              float2 tmp = uvParser(&in);
-                              snprintf(serialize, sz, "%f %f ", tmp.x, tmp.y);
-                          });
+                XMLElement *source = AddSource(xmlScene, mesh, "GeomatryTex1" + to_string(meshIdx), {{"S", "float"}, {"T", "float"}}, "float_array", tex2it, tex2it_end,
+                                               [](const int16_t &in, char *serialize, int sz, int &stride) {
+                                                   stride = 2;
+                                                   float2 tmp = uvParser(&in);
+                                                   snprintf(serialize, sz, "%.*e %.*e ", DECIMAL_DIG, tmp.x, DECIMAL_DIG, tmp.y);
+                                               });
+                XMLElement *vertices = mesh->FirstChildElement("vertices");
+                if (!vertices)
+                {
+                    vertices = (XMLElement *)mesh->InsertEndChild(xmlScene.NewElement("vertices"));
+                }
+                auto input = (XMLElement *)vertices->InsertEndChild(xmlScene.NewElement("input"));
+                input->SetAttribute("semantic", "TEXCOORD");
+                input->SetAttribute("source", "#" + string(source->Attribute("id")));
+                input->SetAttribute("set", "1");
             }
             break;
             case CMP_Offset_BoneWeight:
@@ -439,7 +451,7 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
                             break;
                         }
                     }
-                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%f %f %f %f ", tmp.x, tmp.y, tmp.z, tmp.w);
+                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%.*e %.*e %.*e %.*e ", DECIMAL_DIG, tmp.x, DECIMAL_DIG, tmp.y, DECIMAL_DIG, tmp.z, DECIMAL_DIG, tmp.w);
                     strPos += charWritten;
                 }
                 if (vectorString == nullptr)
@@ -512,7 +524,7 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
                             break;
                         }
                     }
-                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%f %f %f ", tmp.x, tmp.y, tmp.z);
+                    size_t charWritten = snprintf(&vectorString[strPos], strSz - strPos, "%.*e %.*e %.*e ", DECIMAL_DIG, tmp.x, DECIMAL_DIG, tmp.y, DECIMAL_DIG, tmp.z);
                     strPos += charWritten;
                 }
                 if (vectorString == nullptr)
@@ -569,9 +581,20 @@ int MeshPlugin::unpack(void *pDataIn, size_t szIn, void **ppDataOut, size_t &szO
     return 0;
 }
 
-int MeshPlugin::pack(void *, size_t, void **, size_t &, CDRM_TYPES &)
+int MeshPlugin::pack(void *buffer, size_t sz, void **data, size_t &sz_data, CDRM_TYPES &type)
 {
-    printf("Not implimented");
+    const aiScene *scene = nullptr;
+    Assimp::Importer importer;
+    scene = importer.ReadFileFromMemory(buffer, sz, 0);
+    for (int m = 0; m < scene->mNumMeshes; m++)
+    {
+        printf("%d. Mesh [%s], no. UV channels [%d], no. bones [%d]\n", m, scene->mMeshes[m]->mName.C_Str(), scene->mMeshes[m]->GetNumUVChannels(), scene->mMeshes[m]->mNumBones);
+    }
+    if (!scene)
+    {
+        printf("Invalid scene\n");
+    }
+    printf("Not implimented\n");
     return 1;
 }
 
@@ -782,7 +805,7 @@ XMLElement *MeshPlugin::AddSource(XMLDocument &xmlScene, XMLElement *root, const
     array_type->SetAttribute("count", count);
     accessor->SetAttribute("count", strided_count);
     accessor->SetAttribute("stride", stride);
-    return nullptr;
+    return source;
 }
 
 BoneHeader *fileHeader::getBoneHeader()

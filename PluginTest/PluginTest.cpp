@@ -34,7 +34,7 @@ SOFTWARE.
 #include <windows.h>
 #define dlopen(x, y) LoadLibraryA(x)
 #define dlsym(x, y) (void *)GetProcAddress((HMODULE)x, y)
-#define dlclose(x)  CloseHandle(x);
+#define dlclose(x) CloseHandle(x);
 #endif
 #include "PluginInterface.h"
 #include <stdio.h>
@@ -43,10 +43,10 @@ SOFTWARE.
 
 int main(int argv, char *argc[])
 {
-    if (argv != 4)
+    if (argv != 5)
     {
         char *pExeName = strrchr(argc[0], '\\');
-        printf("%s <plugin name> <input file> <output file>\n", pExeName ? pExeName + 1 : "PluginTest");
+        printf("%s <plugin name> <pack | unpack> <input file> <output file>\n", pExeName ? pExeName + 1 : "PluginTest");
         return -1;
     }
     int errCode = 0;
@@ -54,17 +54,17 @@ int main(int argv, char *argc[])
     void *hPluginDll = NULL;
     PluginInterface *pPluginInterface = nullptr;
     int hInpFile = 0, hOpFile = 0;
-    char pluginName[NAME_LENGTH] = {0};
+    char pluginName[NAME_LENGTH] = "./";
     size_t fileSize = 0;
     //	read plugin name
-    strcpy(pluginName, argc[1]);
+    strcat(pluginName, argc[1]);
     //	append ".dll"
     strcat(pluginName, ".so");
     //	try to load library.
     hPluginDll = dlopen(pluginName, RTLD_NOW);
     if (hPluginDll == NULL)
     {
-        printf("Failed to load Plugin (%s)\n", pluginName);
+        printf("Failed to load Plugin (%s).\nError [%s]\n", pluginName, dlerror());
         return 1;
     }
     //	try to get create and destroy fn().
@@ -85,14 +85,14 @@ int main(int argv, char *argc[])
         printf("Failed to create interface.\n");
         return 1;
     }
-    hInpFile = open(argc[2], O_RDONLY);
+    hInpFile = open(argc[3], O_RDONLY);
     if (hInpFile == 0)
     {
         dlclose(hPluginDll);
         printf("Unable to open file.\n");
         return 1;
     }
-    hOpFile = open(argc[3], O_RDWR | O_CREAT | O_TRUNC, 0666);
+    hOpFile = open(argc[4], O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (hOpFile == 0)
     {
         dlclose(hPluginDll);
@@ -113,10 +113,28 @@ int main(int argv, char *argc[])
         printf("Unable to read file.\n");
         return 1;
     }
-    if (pPluginInterface->unpack(fileData, fileSize, &outputData, outputSize, type))
+    if (!strcmp(argc[2], "unpack"))
+    {
+        if (pPluginInterface->unpack(fileData, fileSize, &outputData, outputSize, type))
+        {
+            dlclose(hPluginDll);
+            printf("Failed to unpack.\n");
+            return 1;
+        }
+    }
+    else if (!strcmp(argc[2], "pack"))
+    {
+        if (pPluginInterface->pack(fileData, fileSize, &outputData, outputSize, type))
+        {
+            dlclose(hPluginDll);
+            printf("Failed to pack.\n");
+            return 1;
+        }
+    }
+    else
     {
         dlclose(hPluginDll);
-        printf("Failed to unpack.\n");
+        printf("invalid argument [%s].\n", argc[2]);
         return 1;
     }
     uint32_t bytesWritten = 0;
@@ -126,6 +144,7 @@ int main(int argv, char *argc[])
         printf("Unable to write file.\n");
         return 1;
     }
+    dlclose(hPluginDll);
     close(hOpFile);
     close(hInpFile);
     return 0;
