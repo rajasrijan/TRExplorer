@@ -8,7 +8,9 @@ include_directories(${COMMON_INCLUDE_DIRS})
 
 pkg_check_modules(assimp REQUIRED assimp)
 IF(assimp_FOUND)
-  include_directories("${assimp_INCLUDE_DIRS}")
+  IF(assimp_INCLUDE_DIRS)
+	include_directories("${assimp_INCLUDE_DIRS}")
+  ENDIF(assimp_INCLUDE_DIRS)
   # and for each of your dependant executable/library targets:
   TARGET_LINK_LIBRARIES(MeshPlugin ${assimp_LIBRARIES})
 ELSE(assimp_FOUND)

@@ -240,8 +240,12 @@ patch::patch(const string &_path, bool silent) : tigerFilePath(_path), tiger(NUL
 		string basePath = tiger->BasePath;
 		do
 		{
-			filelist >> buffer;
+			filelist.getline(buffer, sizeof(buffer));
 			string fullFilePath = basePath + buffer;
+			if (fullFilePath.back() == '\r')	// needed on *nix
+			{
+				fullFilePath.pop_back();
+			}
 			uint32_t crc = crc32_hash(fullFilePath.data(),
 									  fullFilePath.length());
 			fileListHashMap[crc] = fullFilePath;
