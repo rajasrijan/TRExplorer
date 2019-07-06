@@ -186,7 +186,7 @@ public:
 		{
 			printf("Error occured trying to read offset [%#X]", offset);
 			exit(1);
-			return NULL;
+            return nullptr;
 		}
 	}
 	uint32_t getNameHash()
@@ -214,7 +214,7 @@ public:
 		{
 			printf("Error occured trying to read offset [%#X]", offset);
 			exit(1);
-			return NULL;
+            return nullptr;
 		}
 	}
 	uint32_t getNameHash()

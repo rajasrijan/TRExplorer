@@ -5,7 +5,9 @@ add_library(TexturePlugin MODULE TexturePlugin.cpp TextureHeader.cpp DDSLoader.c
 
 include_directories(${COMMON_INCLUDE_DIRS})
 
-set_property(TARGET TexturePlugin PROPERTY CXX_STANDARD 14)
+set_property(TARGET TexturePlugin PROPERTY CXX_STANDARD 17)
+
+add_dependencies(TRExplorer TexturePlugin)
 
 install(
   TARGETS TexturePlugin

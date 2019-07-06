@@ -23,7 +23,7 @@ SOFTWARE.
 */
 #include <stdlib.h>  
 #include <iostream>
-#include <stdio.h>
+#include <cstdio>
 #include <memory>
 #include <map>
 #include <string>

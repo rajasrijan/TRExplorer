@@ -72,7 +72,7 @@ EVT_PAINT(wxThumbnailCtrl::OnPaint)
 										EVT_UPDATE_UI(wxID_SELECTALL, wxThumbnailCtrl::OnUpdateSelectAll)
 											END_EVENT_TABLE()
 
-												wxThumbnailCtrl *wxThumbnailCtrl::sm_currentThumbnailCtrl = NULL;
+wxThumbnailCtrl *wxThumbnailCtrl::sm_currentThumbnailCtrl = nullptr;
 
 /*!
  * wxThumbnailCtrl
@@ -265,7 +265,7 @@ void wxThumbnailCtrl::Sort()
 		return sm_currentThumbnailCtrl->Compare(item1, item2);
 	});
 
-	sm_currentThumbnailCtrl = NULL;
+    sm_currentThumbnailCtrl = nullptr;
 
 	Freeze();
 
@@ -335,8 +335,9 @@ wxThumbnailItem *wxThumbnailCtrl::GetItem(int n)
 	{
 		return &m_items[(size_t)n];
 	}
-	else
-		return NULL;
+	else {
+        return nullptr;
+    }
 }
 
 /// Get the overall rect of the given item

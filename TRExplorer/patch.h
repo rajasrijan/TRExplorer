@@ -23,7 +23,8 @@ SOFTWARE.
 */
 
 #pragma once
-#include <stdio.h>
+
+#include <cstdio>
 #include <string>
 #include "tiger.h"
 #include "PluginInterface.h"

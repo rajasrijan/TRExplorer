@@ -329,7 +329,7 @@ public:
 	int GetSelection() const;
 
 	/// Get the selected of the single selection, if not multi-select.
-	/// Returns NULL if there is no selection.
+    /// Returns nullptr if there is no selection.
 	wxThumbnailItem* GetSelected();
 
 	/// Get indexes of all selections, if multi-select

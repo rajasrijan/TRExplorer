@@ -23,7 +23,7 @@ SOFTWARE.
 */
 #include "gui.h"
 #include <assert.h>
-#include <stdio.h>
+#include <cstdio>
 #include <algorithm>
 #include <thread>
 #include <mutex>
@@ -54,7 +54,7 @@ MyApp::~MyApp()
 
 bool MyApp::OnInit()
 {
-    frame = new GUI(NULL);
+    frame = new GUI(nullptr);
     frame->Show(true);
     return true;
 }

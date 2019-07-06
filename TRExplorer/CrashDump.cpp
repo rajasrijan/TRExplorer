@@ -47,15 +47,15 @@ void create_minidump(struct _EXCEPTION_POINTERS* apExceptionInfo)
     }
     MINIDUMPWRITEDUMP pDump = (MINIDUMPWRITEDUMP)::GetProcAddress(mhLib, "MiniDumpWriteDump");
 
-    HANDLE  hFile = ::CreateFile(_T("core.dmp"), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE hFile = ::CreateFile(_T("core.dmp"), GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
     _MINIDUMP_EXCEPTION_INFORMATION ExInfo;
     ExInfo.ThreadId = ::GetCurrentThreadId();
     ExInfo.ExceptionPointers = apExceptionInfo;
     ExInfo.ClientPointers = FALSE;
 
-    pDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, (MINIDUMP_TYPE)Flags, &ExInfo, NULL, NULL);
+    pDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, (MINIDUMP_TYPE)
+    Flags, &ExInfo, nullptr, nullptr);
     ::CloseHandle(hFile);
 }
 LONG WINAPI unhandled_handler(struct _EXCEPTION_POINTERS* apExceptionInfo)

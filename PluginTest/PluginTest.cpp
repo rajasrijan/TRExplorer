@@ -21,9 +21,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -37,7 +37,7 @@ SOFTWARE.
 #define dlclose(x) CloseHandle(x);
 #endif
 #include "PluginInterface.h"
-#include <stdio.h>
+#include <cstdio>
 
 #define NAME_LENGTH 256
 
@@ -49,20 +49,20 @@ int main(int argv, char *argc[])
         printf("%s <plugin name> <pack | unpack> <input file> <output file>\n", pExeName ? pExeName + 1 : "PluginTest");
         return -1;
     }
-    int errCode = 0;
-    void *pfnCreate, *pfnDestroy;
-    void *hPluginDll = NULL;
-    PluginInterface *pPluginInterface = nullptr;
-    int hInpFile = 0, hOpFile = 0;
-    char pluginName[NAME_LENGTH] = "./";
-    size_t fileSize = 0;
+    int             errCode                 = 0;
+    void            *pfnCreate, *pfnDestroy;
+    void            *hPluginDll             = nullptr;
+    PluginInterface *pPluginInterface       = nullptr;
+    int             hInpFile                = 0, hOpFile = 0;
+    char            pluginName[NAME_LENGTH] = "./";
+    size_t          fileSize                = 0;
     //	read plugin name
     strcat(pluginName, argc[1]);
     //	append ".dll"
     strcat(pluginName, ".so");
     //	try to load library.
     hPluginDll = dlopen(pluginName, RTLD_NOW);
-    if (hPluginDll == NULL)
+    if (hPluginDll == nullptr)
     {
         printf("Failed to load Plugin (%s).\nError [%s]\n", pluginName, dlerror());
         return 1;
@@ -71,7 +71,7 @@ int main(int argv, char *argc[])
 
     pfnCreate = dlsym(hPluginDll, "createPluginInterface");
     pfnDestroy = dlsym(hPluginDll, "destroyPluginInterface");
-    if (pfnCreate == NULL || pfnDestroy == NULL)
+    if (pfnCreate == nullptr || pfnDestroy == nullptr)
     {
         dlclose(hPluginDll);
         printf("Failed to load interface api.\n");
@@ -86,14 +86,14 @@ int main(int argv, char *argc[])
         return 1;
     }
     hInpFile = open(argc[3], O_RDONLY);
-    if (hInpFile == 0)
+    if (hInpFile < 0)
     {
         dlclose(hPluginDll);
         printf("Unable to open file.\n");
         return 1;
     }
     hOpFile = open(argc[4], O_RDWR | O_CREAT | O_TRUNC, 0666);
-    if (hOpFile == 0)
+    if (hOpFile < 0)
     {
         dlclose(hPluginDll);
         printf("Unable to open file.\n");

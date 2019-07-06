@@ -138,12 +138,12 @@ std::streampos getFileSize(fstream *file)
 	return endPos;
 }
 
-patch::patch(const string &_path, bool silent) : tigerFilePath(_path), tiger(NULL)
+patch::patch(const string &_path, bool silent) : tigerFilePath(_path), tiger(nullptr)
 {
 #ifdef __unix__
 	int mainTigerFile = open(tigerFilePath.c_str(), O_RDWR);
 #else
-	HANDLE mainTigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE mainTigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 #endif
 	if (mainTigerFile == INVALID_FILE_DESCRIPTOR)
 	{
@@ -159,15 +159,15 @@ patch::patch(const string &_path, bool silent) : tigerFilePath(_path), tiger(NUL
 	tigerFilePtr = mmap(nullptr, fileSz, PROT_READ | PROT_WRITE,
 						MAP_SHARED, mainTigerFile, 0);
 #else
-	HANDLE mainTigerFileMapping = CreateFileMapping(mainTigerFile, NULL, PAGE_READWRITE, 0, 0, NULL);
-	if (mainTigerFileMapping == INVALID_FILE_DESCRIPTOR)
-	{
-		printf("Failed to create mapping for file [%s]. error(%d)",
-			   tigerFilePath.c_str(), errno);
-		exit(1);
-	}
-	fileHandles.push_back(mainTigerFileMapping);
-	tigerFilePtr = MapViewOfFile(mainTigerFileMapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+    HANDLE mainTigerFileMapping = CreateFileMapping(mainTigerFile, nullptr, PAGE_READWRITE, 0, 0, nullptr);
+    if (mainTigerFileMapping == INVALID_FILE_DESCRIPTOR)
+    {
+        printf("Failed to create mapping for file [%s]. error(%d)",
+               tigerFilePath.c_str(), errno);
+        exit(1);
+    }
+    fileHandles.push_back(mainTigerFileMapping);
+    tigerFilePtr = MapViewOfFile(mainTigerFileMapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 #endif
 	if (tigerFilePtr == nullptr)
 	{
@@ -192,7 +192,7 @@ patch::patch(const string &_path, bool silent) : tigerFilePath(_path), tiger(NUL
 #ifdef __unix__
 		int tigerFile = open(tigerFilePath.c_str(), O_RDWR);
 #else
-		HANDLE tigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        HANDLE tigerFile = CreateFileA(tigerFilePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 #endif
 		if (tigerFile == INVALID_FILE_DESCRIPTOR)
 		{
@@ -206,15 +206,15 @@ patch::patch(const string &_path, bool silent) : tigerFilePath(_path), tiger(NUL
 		tigerFilePtr = mmap(nullptr, fileSz, PROT_READ | PROT_WRITE,
 							MAP_SHARED, tigerFile, 0);
 #else
-		HANDLE tigerFileMapping = CreateFileMapping(tigerFile, NULL, PAGE_READWRITE, 0, 0, NULL);
-		if (tigerFileMapping == INVALID_FILE_DESCRIPTOR)
-		{
-			printf("Failed to create mapping for file [%s]. error(%d)",
-				   tigerFilePath.c_str(), errno);
-			exit(1);
-		}
-		fileHandles.push_back(tigerFileMapping);
-		tigerFilePtr = MapViewOfFile(tigerFileMapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+        HANDLE tigerFileMapping = CreateFileMapping(tigerFile, nullptr, PAGE_READWRITE, 0, 0, nullptr);
+        if (tigerFileMapping == INVALID_FILE_DESCRIPTOR)
+        {
+            printf("Failed to create mapping for file [%s]. error(%d)",
+                   tigerFilePath.c_str(), errno);
+            exit(1);
+        }
+        fileHandles.push_back(tigerFileMapping);
+        tigerFilePtr = MapViewOfFile(tigerFileMapping, FILE_MAP_ALL_ACCESS, 0, 0, 0);
 #endif
 		if (tigerFilePtr == nullptr)
 		{
@@ -721,7 +721,7 @@ int loadPlugins()
 
 		//	try to load library.
 		p.hPluginDll = dlopen(pluginName, RTLD_NOW);
-		if (p.hPluginDll == NULL)
+        if (p.hPluginDll == nullptr)
 		{
 			printf("failed to open \"%s\". Reason [%s]\n", pluginName,
 				   dlerror());
@@ -730,7 +730,7 @@ int loadPlugins()
 		//	try to get create and destroy handles.
 		p.pfnCreate = dlsym(p.hPluginDll, "createPluginInterface");
 		p.pfnDestroy = dlsym(p.hPluginDll, "destroyPluginInterface");
-		if (p.pfnCreate == NULL || p.pfnDestroy == NULL)
+        if (p.pfnCreate == nullptr || p.pfnDestroy == nullptr)
 		{
 			printf("failed to load interface for \"%s\". Reason [%s]\n",
 				   pluginName, dlerror());

@@ -53,7 +53,7 @@ class PluginInterface
 	{
 	}
 
-	~PluginInterface()
+    virtual ~PluginInterface()
 	{
 	}
 	virtual int check(void *, size_t, CDRM_TYPES &type) = 0;

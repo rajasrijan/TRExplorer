@@ -47,7 +47,7 @@ CDRM_BlockFooter * unknown_header2_v1::getCDRMFooter()
 	{
 		printf("Error occured trying to read offset [%#X]", offset);
 		exit(1);
-		return NULL;
+        return nullptr;
 	}
 }
 
@@ -74,7 +74,7 @@ CDRM_BlockFooter * unknown_header2_v2::getCDRMFooter()
 	{
 		printf("Error occured trying to read offset [%#X]", offset);
 		exit(1);
-		return NULL;
+        return nullptr;
 	}
 }
 
