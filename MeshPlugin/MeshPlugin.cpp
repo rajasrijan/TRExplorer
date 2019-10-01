@@ -56,11 +56,11 @@ using namespace tinyxml2;
 
 #define SCENE_MAGIC (0x6873654D)
 
-int createPluginInterface(PluginInterface **ppPluginInterface) {
+int createPluginInterface(PluginInterface **ppPluginInterface, const PluginCreateInfo &pluginCreateInfo) {
     if (!ppPluginInterface) {
         return 1;
     }
-    *ppPluginInterface = new MeshPlugin;
+    *ppPluginInterface = new MeshPlugin(pluginCreateInfo.gameVersion);
     if (!*ppPluginInterface) {
         return 1;
     }
@@ -78,7 +78,7 @@ int destroyPluginInterface(PluginInterface *pPluginInterface) {
 Mesh::Mesh() : numVerts(0), numFaces(0), numIdx(0), matName(""), meshName(""), unkn_pos(-1), xyz_pos(-1), xyz_pos2(-1), norm_pos(-1), norm_pos2(-1), norm_pos3(-1), uv_pos(-1), uv2_pos(-1), bw_pos(-1), bi_pos(-1), BoneMapOffset(0), meshOffset(0), vertOffset(0), vfOffset(0), facesOffset(0), numFaceGroups(0) {
 }
 
-MeshPlugin::MeshPlugin() {
+MeshPlugin::MeshPlugin(uint32_t gameVer) : PluginInterface(gameVer) {
 }
 
 MeshPlugin::~MeshPlugin() {
@@ -399,22 +399,7 @@ int MeshPlugin::pack(void *buffer, size_t sz, void **data, size_t &sz_data, CDRM
         string meshName = scene->mMeshes[meshId]->mName.C_Str();
         meshGroups[meshName].push_back(scene->mMeshes[meshId]);
     }
-    auto                          bs        = BitStreamWriter();
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    int                           FILE_BYTE = 0x59;
-    bs.write(FILE_BYTE);
-    bs.seek(16, SEEK_ABS);
-    int unknownCount = 0x17;
-    bs.write(unknownCount);
-    bs.seek(24, SEEK_ABS);
-    int PTR_MESH_START = 0xab;
-    bs.write(PTR_MESH_START);
-    bs.seek((FILE_BYTE * 8), SEEK_ABS);
-    auto HEADER_END = bs.getOffset();
-    bs.seek(20, SEEK_REL); // Bone Pointers
-    bs.seek((unknownCount * 4), SEEK_REL);
-    auto         BASE_START = bs.getOffset();
-    vector<Bone> bones;
+    vector<Bone>                  bones;
     {
         int             maxBoneId     = 0;
         map<int, Bone>  boneMap;
@@ -442,9 +427,24 @@ int MeshPlugin::pack(void *buffer, size_t sz, void **data, size_t &sz_data, CDRM
             bones[i] = boneMap[i];
         }
     }
+    auto                          bs        = BitStreamWriter();
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    int                           FILE_BYTE = 0x59;
+    bs.write(FILE_BYTE);
+    bs.seek(16, SEEK_ABS);
+    int unknownCount = 0x17;
+    bs.write(unknownCount);
+    bs.seek(24, SEEK_ABS);
+    int PTR_MESH_START = (FILE_BYTE * 8) + (64 * bones.size()) + 20 + (unknownCount * 4) + 4;
+    bs.write(PTR_MESH_START);
+    bs.seek((FILE_BYTE * 8), SEEK_ABS);
+    auto HEADER_END = bs.getOffset();
+    bs.seek(20, SEEK_REL); // Bone Pointers
+    bs.seek((unknownCount * 4), SEEK_REL);
+    auto BASE_START = bs.getOffset();
     //  bone data
-    int          UNKN       = 1970;
-    int          NUM_BONES  = bones.size();
+    int  UNKN       = 1970;
+    int  NUM_BONES  = bones.size();
     bs.write(NUM_BONES);
     int             PTR_BONE_COUNT = bs.getOffset() - BASE_START;
     int             PTR_BONE_START = bs.getOffset() - BASE_START;
@@ -459,10 +459,7 @@ int MeshPlugin::pack(void *buffer, size_t sz, void **data, size_t &sz_data, CDRM
     }
     int             PTR_UNKN_COUNT = bs.getOffset() + 4;
     int             PTR_UNKN_START = bs.getOffset();
-
-    PTR_MESH_START = bs.getOffset() - BASE_START;
-    bs.seek(24, SEEK_ABS);
-    bs.write(PTR_MESH_START);
+    uint32_t        NUM_TRIS       = 0;
 
     bs.seek(HEADER_END, SEEK_ABS);
     bs.write(UNKN);
@@ -470,6 +467,11 @@ int MeshPlugin::pack(void *buffer, size_t sz, void **data, size_t &sz_data, CDRM
     bs.write(PTR_BONE_START);
     bs.write(PTR_UNKN_COUNT);
     bs.write(PTR_UNKN_START);
+
+    bs.seek(BASE_START + PTR_MESH_START, SEEK_ABS);
+    int MESH_START = bs.getOffset();
+    bs.seek(12, SEEK_REL);
+    bs.write(NUM_TRIS);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     sz_data = bs.size();

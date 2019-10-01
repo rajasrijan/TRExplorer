@@ -41,7 +41,8 @@ struct Plugin
     PluginInterface* pPluginInterface;
 };
 extern vector<pair<string, Plugin>> pluginList;
-int loadPlugins();
+
+int loadPlugins(uint32_t gameVersion);
 
 class patch
 {
@@ -77,4 +78,8 @@ public:
     int encodeAndCompress(void* pHdr, string fileName);
     int encodeAndCompress(unknown_header2_v1* pHdr, string fileName);
     int encodeAndCompress(unknown_header2_v2* pHdr, string fileName);
+
+    uint32_t gameVersion() {
+        return tiger->version;
+    }
 };

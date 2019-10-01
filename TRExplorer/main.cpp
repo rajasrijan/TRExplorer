@@ -39,12 +39,6 @@ int main(int argc, char *argv[])
 {
 	int ret = 0;
 	system("title rajasrijan's tiger decoder.");
-	ret = loadPlugins();
-	if (ret)
-	{
-		printf("Failed to load plugins\n");
-		return ret;
-	}
 	wxAppConsole *gui = wxCreateApp();
 	wxApp::SetInstance(gui);
 	wxEntry(argc, argv);

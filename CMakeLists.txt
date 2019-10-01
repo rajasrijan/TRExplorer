@@ -41,15 +41,30 @@ ELSE (ZLIB_FOUND)
             )
 ENDIF (ZLIB_FOUND)
 
+SET(IL_LIBRARIES ${CMAKE_BINARY_DIR}/external/lib/libIL.so)
+SET(ILU_LIBRARIES ${CMAKE_BINARY_DIR}/external/lib/libILU.so)
+SET(ILUT_LIBRARIES ${CMAKE_BINARY_DIR}/external/lib/libILUT.so)
+SET(IL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/external/include)
+ExternalProject_Add(DevIL
+        PREFIX DevIL
+        GIT_REPOSITORY https://github.com/DentonW/DevIL.git
+        SOURCE_SUBDIR DevIL
+        GIT_SHALLOW true
+        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/external/ -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+        )
+add_dependencies(TRExplorer DevIL)
 FIND_PACKAGE(DevIL REQUIRED)
-IF (IL_FOUND)
-    include_directories("${IL_INCLUDE_DIR}")
-    # and for each of your dependant executable/library targets:
-    TARGET_LINK_LIBRARIES(TRExplorer ${ILUT_LIBRARIES} ${ILU_LIBRARIES} ${IL_LIBRARIES})
-ELSE (IL_FOUND)
-    # For convenience. When we cannot continue, inform the user
-    MESSAGE("DevIL not found!")
-ENDIF (IL_FOUND)
+include_directories("${IL_INCLUDE_DIR}")
+TARGET_LINK_LIBRARIES(TRExplorer ${ILUT_LIBRARIES} ${ILU_LIBRARIES} ${IL_LIBRARIES})
+#FIND_PACKAGE(DevIL REQUIRED)
+#IF (IL_FOUND)
+#    include_directories("${IL_INCLUDE_DIR}")
+#    # and for each of your dependant executable/library targets:
+#    TARGET_LINK_LIBRARIES(TRExplorer ${ILUT_LIBRARIES} ${ILU_LIBRARIES} ${IL_LIBRARIES})
+#ELSE (IL_FOUND)
+#    # For convenience. When we cannot continue, inform the user
+#    MESSAGE("DevIL not found!")
+#ENDIF (IL_FOUND)
 
 TARGET_LINK_LIBRARIES(TRExplorer ${CMAKE_DL_LIBS})
 

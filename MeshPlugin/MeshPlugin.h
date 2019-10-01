@@ -400,7 +400,7 @@ public:
 class MeshPlugin : public PluginInterface {
 
 public:
-    MeshPlugin();
+    MeshPlugin(uint32_t gameVer);
 
     ~MeshPlugin();
 
@@ -432,5 +432,5 @@ private:
     void library_visual_scenes(tinyxml2::XMLDocument &collada, XMLElement *rootElement, const std::vector<Bone> &boneList);
 };
 
-API int createPluginInterface(PluginInterface **ppPluginInterface);
+API int createPluginInterface(PluginInterface **ppPluginInterface, const PluginCreateInfo &pluginCreateInfo);
 API int destroyPluginInterface(PluginInterface *pPluginInterface);

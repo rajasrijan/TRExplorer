@@ -25,7 +25,7 @@
 
 #define MAKEVERSION(x, y) (((x & 0xFFFF) << 16) | (y & 0xFFFF))
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 0
+#define VERSION_MINOR 1
 #define VERSION MAKEVERSION(VERSION_MAJOR, VERSION_MINOR)
 
 #ifdef PLUGIN
@@ -38,37 +38,50 @@
 #define API
 #endif // PLUGIN
 
-enum CDRM_TYPES
-{
-	CDRM_TYPE_UNKNOWN = 0,
-	CDRM_TYPE_DDS = 1,
-	CDRM_TYPE_MESH = 2,
-	CDRM_TYPE_BINARY_BLOB = 3
+enum CDRM_TYPES {
+    CDRM_TYPE_UNKNOWN = 0, CDRM_TYPE_DDS = 1, CDRM_TYPE_MESH = 2, CDRM_TYPE_BINARY_BLOB = 3
 };
 
-class PluginInterface
-{
-  public:
-	PluginInterface()
-	{
-	}
+class PluginInterface {
+private:
+    uint32_t gameVersion;
+public:
+    PluginInterface(uint32_t gameVer) : gameVersion(gameVer) {
+    }
 
-    virtual ~PluginInterface()
-	{
-	}
-	virtual int check(void *, size_t, CDRM_TYPES &type) = 0;
-	virtual int unpack(void *, size_t, void **, size_t &, CDRM_TYPES &) = 0;
-	virtual int pack(void *, size_t, void **, size_t &, CDRM_TYPES &) = 0;
-	virtual int getType(void *, size_t) = 0;
-	virtual uint32_t getPluginInterfaceVersion()
-	{
-		return VERSION;
-	}
+    virtual ~PluginInterface() {
+    }
 
-  private:
+    virtual int check(void *, size_t, CDRM_TYPES &type) = 0;
+
+    virtual int unpack(void *, size_t, void **, size_t &, CDRM_TYPES &) = 0;
+
+    virtual int pack(void *, size_t, void **, size_t &, CDRM_TYPES &) = 0;
+
+    virtual int getType(void *, size_t) = 0;
+
+    virtual uint32_t getPluginInterfaceVersion() {
+        return VERSION;
+    }
+
+    uint32_t getGameVersion() {
+        return gameVersion;
+    }
+
+private:
+};
+
+#define PluginCreateInfo_STRUCT_VER 1
+
+struct PluginCreateInfo {
+    uint32_t PluginCreateInfo_ver;
+    uint32_t gameVersion;
 };
 
 #ifndef PLUGIN
-typedef int (*createPluginInterface)(PluginInterface **ppPluginInterface);
+
+typedef int (*createPluginInterface)(PluginInterface **ppPluginInterface, const PluginCreateInfo &pluginCreateInfo);
+
 typedef int (*destroyPluginInterface)(PluginInterface *pPluginInterface);
+
 #endif // !PLUGIN

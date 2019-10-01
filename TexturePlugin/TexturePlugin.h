@@ -23,20 +23,26 @@ SOFTWARE.
 */
 #pragma once
 #define PLUGIN
+
 #include "PluginInterface.h"
 #include "TextureHeader.h"
 
-class TexturePlugin : public PluginInterface
-{
+class TexturePlugin : public PluginInterface {
 public:
-	TexturePlugin();
-	~TexturePlugin();
-	int check(void*, size_t, CDRM_TYPES& type);
-	int unpack(void*, size_t, void**, size_t&, CDRM_TYPES&);
-	int pack(void *pDataIn, size_t sz, void **ppDataOut, size_t &szOut, CDRM_TYPES &type);
-	int getType(void*, size_t);
+    TexturePlugin(uint32_t gameVer);
+
+    ~TexturePlugin();
+
+    int check(void *, size_t, CDRM_TYPES &type);
+
+    int unpack(void *, size_t, void **, size_t &, CDRM_TYPES &);
+
+    int pack(void *pDataIn, size_t sz, void **ppDataOut, size_t &szOut, CDRM_TYPES &type);
+
+    int getType(void *, size_t);
+
 private:
 };
 
-API int createPluginInterface(PluginInterface** ppPluginInterface);
-API int destroyPluginInterface(PluginInterface* pPluginInterface);
+API int createPluginInterface(PluginInterface **ppPluginInterface, const PluginCreateInfo &pluginCreateInfo);
+API int destroyPluginInterface(PluginInterface *pPluginInterface);
